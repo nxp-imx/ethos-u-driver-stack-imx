@@ -59,8 +59,10 @@ struct ethosu_inference {
 	struct file             *file;
 	struct kref             kref;
 	wait_queue_head_t       waitq;
-	struct ethosu_buffer    *ifm;
-	struct ethosu_buffer    *ofm;
+	uint32_t                ifm_count;
+	struct ethosu_buffer    *ifm[ETHOSU_FD_MAX];
+	uint32_t                ofm_count;
+	struct ethosu_buffer    *ofm[ETHOSU_FD_MAX];
 	struct ethosu_network   *net;
 	bool                    pending;
 	enum ethosu_uapi_status status;

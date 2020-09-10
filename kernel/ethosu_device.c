@@ -79,8 +79,8 @@ static int ethosu_handle_msg(struct ethosu_device *edev)
 		break;
 	case ETHOSU_CORE_MSG_INFERENCE_RSP:
 		dev_info(edev->dev,
-			 "Msg: Inference response. user_arg=0x%llx, ofm_size=%u, status=%u\n",
-			 data.inf.user_arg, data.inf.ofm_size,
+			 "Msg: Inference response. user_arg=0x%llx, ofm_count=%u, status=%u\n",
+			 data.inf.user_arg, data.inf.ofm_count,
 			 data.inf.status);
 		ethosu_inference_rsp(edev, &data.inf);
 		break;

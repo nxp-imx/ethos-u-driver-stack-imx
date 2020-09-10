@@ -171,15 +171,25 @@ int ethosu_mailbox_ping(struct ethosu_mailbox *mbox)
 
 int ethosu_mailbox_inference(struct ethosu_mailbox *mbox,
 			     void *user_arg,
-			     struct ethosu_buffer *ifm,
-			     struct ethosu_buffer *ofm,
+			     uint32_t ifm_count,
+			     struct ethosu_buffer **ifm,
+			     uint32_t ofm_count,
+			     struct ethosu_buffer **ofm,
 			     struct ethosu_buffer *network)
 {
 	struct ethosu_core_inference_req inf;
+	uint32_t i;
 
 	inf.user_arg = (ptrdiff_t)user_arg;
-	ethosu_core_set_size(ifm, &inf.ifm);
-	ethosu_core_set_capacity(ofm, &inf.ofm);
+	inf.ifm_count = ifm_count;
+	inf.ofm_count = ofm_count;
+
+	for (i = 0; i < ifm_count; i++)
+		ethosu_core_set_size(ifm[i], &inf.ifm[i]);
+
+	for (i = 0; i < ofm_count; i++)
+		ethosu_core_set_capacity(ofm[i], &inf.ofm[i]);
+
 	ethosu_core_set_size(network, &inf.network);
 
 	return ethosu_queue_write_msg(mbox, ETHOSU_CORE_MSG_INFERENCE_REQ,

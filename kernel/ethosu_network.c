@@ -108,7 +108,7 @@ static long ethosu_network_ioctl(struct file *file,
 
 		dev_info(net->edev->dev,
 			 "Ioctl: Inference. ifm_fd=%u, ofm_fd=%u\n",
-			 uapi.ifm_fd, uapi.ofm_fd);
+			 uapi.ifm_fd[0], uapi.ofm_fd[0]);
 
 		ret = ethosu_inference_create(net->edev, net, &uapi);
 		break;

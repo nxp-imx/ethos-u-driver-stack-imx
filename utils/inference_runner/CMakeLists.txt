@@ -16,17 +16,11 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.0.2)
-
-# Set the project name and version
-project("inference_runner" VERSION 1.0)
-
 # Build executable
 add_executable(inference_runner "inference_runner.cpp")
 
 # Link agains ethosu library
-target_link_libraries(inference_runner ethosu)
-set(CMAKE_EXE_LINKER_FLAGS "-static")
+target_link_libraries(inference_runner PRIVATE ethosu)
 
 # Install target
 install(TARGETS inference_runner DESTINATION "bin")

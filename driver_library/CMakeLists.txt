@@ -28,6 +28,7 @@ add_library(ethosu STATIC "src/ethosu.cpp")
 target_include_directories(ethosu PUBLIC "include")
 set_target_properties(ethosu PROPERTIES PUBLIC_HEADER "include/ethosu.hpp")
 set_target_properties(ethosu PROPERTIES VERSION ${PROJECT_VERSION})
+target_link_libraries(ethosu PRIVATE flatbuffers)
 
 # Install library and public headers
 install(TARGETS ethosu

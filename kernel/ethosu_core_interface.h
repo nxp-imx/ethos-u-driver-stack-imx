@@ -27,6 +27,9 @@
 #include <stdint.h>
 #endif
 
+/** Maximum number of IFM/OFM buffers per inference */
+#define ETHOSU_CORE_BUFFER_MAX 16
+
 /**
  * enum ethosu_core_msg_type - Message types
  *
@@ -79,14 +82,17 @@ struct ethosu_core_buffer {
 
 struct ethosu_core_inference_req {
 	uint64_t                  user_arg;
-	struct ethosu_core_buffer ifm;
-	struct ethosu_core_buffer ofm;
+	uint32_t                  ifm_count;
+	struct ethosu_core_buffer ifm[ETHOSU_CORE_BUFFER_MAX];
+	uint32_t                  ofm_count;
+	struct ethosu_core_buffer ofm[ETHOSU_CORE_BUFFER_MAX];
 	struct ethosu_core_buffer network;
 };
 
 struct ethosu_core_inference_rsp {
 	uint64_t user_arg;
-	uint32_t ofm_size;
+	uint32_t ofm_count;
+	uint32_t ofm_size[ETHOSU_CORE_BUFFER_MAX];
 	uint32_t status;
 };
 

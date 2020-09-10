@@ -100,8 +100,10 @@ int ethosu_mailbox_ping(struct ethosu_mailbox *mbox);
  */
 int ethosu_mailbox_inference(struct ethosu_mailbox *mbox,
 			     void *user_arg,
-			     struct ethosu_buffer *ifm,
-			     struct ethosu_buffer *ofm,
+			     uint32_t ifm_count,
+			     struct ethosu_buffer **ifm,
+			     uint32_t ofm_count,
+			     struct ethosu_buffer **ofm,
 			     struct ethosu_buffer *network);
 
 #endif /* ETHOSU_MAILBOX_H */

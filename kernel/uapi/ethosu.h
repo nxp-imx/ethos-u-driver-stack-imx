@@ -51,6 +51,9 @@
 						   struct ethosu_uapi_inference_create)
 #define ETHOSU_IOCTL_INFERENCE_STATUS   ETHOSU_IO(0x31)
 
+/* Maximum number of IFM/OFM file descriptors per network */
+#define ETHOSU_FD_MAX                   16
+
 /****************************************************************************
  * Types
  ****************************************************************************/
@@ -93,12 +96,16 @@ struct ethosu_uapi_network_create {
 
 /**
  * struct ethosu_uapi_inference_create - Create network request
- * @ifm_fd:		IFM buffer file descriptor
- * @ofm_fd:		OFM buffer file descriptor
+ * @ifm_count:		Number of IFM file descriptors
+ * @ifm_fd:		IFM buffer file descriptors
+ * @ofm_count:		Number of OFM file descriptors
+ * @ofm_fd:		OFM buffer file descriptors
  */
 struct ethosu_uapi_inference_create {
-	__u32 ifm_fd;
-	__u32 ofm_fd;
+	__u32 ifm_count;
+	__u32 ifm_fd[ETHOSU_FD_MAX];
+	__u32 ofm_count;
+	__u32 ofm_fd[ETHOSU_FD_MAX];
 };
 
 #endif
