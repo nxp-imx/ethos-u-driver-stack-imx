@@ -18,4 +18,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 #
 
-obj-$(CONFIG_ARM_MHU) = arm_mhu.o
+obj-$(CONFIG_ARM_MHU) += arm_mhu.o
+
+obj-$(CONFIG_ARM_MHU_V2) += arm_mhu_v2.o

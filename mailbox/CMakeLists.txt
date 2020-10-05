@@ -32,12 +32,28 @@ endif()
 # Depend on all h and c files
 file(GLOB_RECURSE SOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "*.c" "*.h")
 
+file(GLOB_RECURSE OBJ RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "*.c")
+list(TRANSFORM OBJ REPLACE "^(.*)[.]c" "\\1.o")
+list(TRANSFORM OBJ PREPEND ${CMAKE_CURRENT_SOURCE_DIR}/)
+
 # Build the kernel module
 add_custom_target(mailbox-module ALL
-                  COMMAND ${CMAKE_MAKE_PROGRAM} -C ${KDIR}
-                  M=${CMAKE_CURRENT_SOURCE_DIR} CONFIG_ARM_MHU=m
+    COMMAND ${CMAKE_MAKE_PROGRAM} -C ${KDIR}
+                  M=${CMAKE_CURRENT_SOURCE_DIR} CONFIG_ARM_MHU_V2=m CONFIG_ARM_MHU=m
                   CROSS_COMPILE=aarch64-linux-gnu- ARCH=arm64 modules
-                  BYPRODUCTS arm_mhu.ko
+                  BYPRODUCTS
+                  ${CMAKE_CURRENT_SOURCE_DIR}/arm_mhu.ko
+                  ${CMAKE_CURRENT_SOURCE_DIR}/arm_mhu.o
+                  ${CMAKE_CURRENT_SOURCE_DIR}/arm_mhu.mod.o
+                  ${CMAKE_CURRENT_SOURCE_DIR}/arm_mhu.mod.c
+                  ${CMAKE_CURRENT_SOURCE_DIR}/arm_mhu_v2.ko
+                  ${CMAKE_CURRENT_SOURCE_DIR}/arm_mhu_v2.o
+                  ${CMAKE_CURRENT_SOURCE_DIR}/arm_mhu_v2.mod.o
+                  ${CMAKE_CURRENT_SOURCE_DIR}/arm_mhu_v2.mod.c
+                  ${CMAKE_CURRENT_SOURCE_DIR}/modules.order
+                  ${CMAKE_CURRENT_SOURCE_DIR}/Module.symvers
+                  ${OBJ}
                   DEPENDS ${SOURCES} Kbuild Kconfig
-                  COMMENT "Building arm_mhu.ko"
+                  COMMENT "Building arm_mhu.ko arm_mhu_v2.ko"
                   VERBATIM)
+
