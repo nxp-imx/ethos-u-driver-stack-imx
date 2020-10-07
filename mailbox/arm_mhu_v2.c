@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
+
 /*
  * Message Handling Unit version 2 controller driver
  * Copyright (C) 2019 ARM Ltd.
@@ -18,19 +19,19 @@
 #include <linux/of_device.h>
 #include <linux/of_address.h>
 
-#define MHU_V2_REG_STAT_OFS		0x0
-#define MHU_V2_REG_CLR_OFS		0x8
-#define MHU_V2_REG_SET_OFS		0xC
-#define MHU_V2_REG_MSG_NO_CAP_OFS	0xF80
-#define MHU_V2_REG_ACC_REQ_OFS		0xF88
-#define MHU_V2_REG_ACC_RDY_OFS		0xF8C
-#define MHU_V2_INT_EN_OFS		0xF98
-#define MHU_V2_AIDR_OFS			0xFCC
+#define MHU_V2_REG_STAT_OFS             0x0
+#define MHU_V2_REG_CLR_OFS              0x8
+#define MHU_V2_REG_SET_OFS              0xC
+#define MHU_V2_REG_MSG_NO_CAP_OFS       0xF80
+#define MHU_V2_REG_ACC_REQ_OFS          0xF88
+#define MHU_V2_REG_ACC_RDY_OFS          0xF8C
+#define MHU_V2_INT_EN_OFS               0xF98
+#define MHU_V2_AIDR_OFS                 0xFCC
 
-#define MHU_V2_CHCOMB			BIT(2)
-#define MHU_V2_AIDR_MINOR(_reg)		((_reg) & 0xF)
+#define MHU_V2_CHCOMB                   BIT(2)
+#define MHU_V2_AIDR_MINOR(_reg)         ((_reg) & 0xF)
 
-#define MHU_V2_EACH_CHANNEL_SIZE	0x20
+#define MHU_V2_EACH_CHANNEL_SIZE        0x20
 
 #define mbox_to_arm_mhuv2(c) container_of(c, struct arm_mhuv2, mbox)
 
@@ -41,13 +42,14 @@ struct mhuv2_link {
 };
 
 struct arm_mhuv2 {
-	void __iomem *base;
-	struct mhuv2_link *mlink;
-	struct mbox_chan *chan;
+	void __iomem           *base;
+	struct mhuv2_link      *mlink;
+	struct mbox_chan       *chan;
 	struct mbox_controller mbox;
 };
 
-static irqreturn_t mhuv2_rx_interrupt(int irq, void *p)
+static irqreturn_t mhuv2_rx_interrupt(int irq,
+				      void *p)
 {
 	struct mbox_chan *chan = p;
 	struct mhuv2_link *mlink = chan->con_priv;
@@ -72,7 +74,8 @@ static bool mhuv2_last_tx_done(struct mbox_chan *chan)
 	return (val == 0);
 }
 
-static int mhuv2_send_data(struct mbox_chan *chan, void *data)
+static int mhuv2_send_data(struct mbox_chan *chan,
+			   void *data)
 {
 	struct mhuv2_link *mlink = chan->con_priv;
 	u32 *arg = data;
@@ -99,6 +102,7 @@ static int mhuv2_startup(struct mbox_chan *chan)
 	if (ret) {
 		dev_err(chan->mbox->dev,
 			"unable to acquire IRQ %d\n", mlink->irq);
+
 		return ret;
 	}
 
@@ -116,9 +120,9 @@ static void mhuv2_shutdown(struct mbox_chan *chan)
 }
 
 static const struct mbox_chan_ops mhuv2_ops = {
-	.send_data = mhuv2_send_data,
-	.startup = mhuv2_startup,
-	.shutdown = mhuv2_shutdown,
+	.send_data    = mhuv2_send_data,
+	.startup      = mhuv2_startup,
+	.shutdown     = mhuv2_shutdown,
 	.last_tx_done = mhuv2_last_tx_done,
 };
 
@@ -126,13 +130,13 @@ void mhuv2_check_enable_cmbint(struct mhuv2_link *link)
 {
 	const u32 aidr = readl_relaxed(link->rx_reg + MHU_V2_AIDR_OFS);
 
-	if (MHU_V2_AIDR_MINOR(aidr) == 1) {
-		// Enable combined receiver interrupt for MHUv2.1
+	if (MHU_V2_AIDR_MINOR(aidr) == 1)
+		/* Enable combined receiver interrupt for MHUv2.1 */
 		writel_relaxed(MHU_V2_CHCOMB, link->rx_reg + MHU_V2_INT_EN_OFS);
-	}
 }
 
-static int mhuv2_probe(struct amba_device *adev, const struct amba_id *id)
+static int mhuv2_probe(struct amba_device *adev,
+		       const struct amba_id *id)
 {
 	int i, err;
 	struct arm_mhuv2 *mhuv2;
@@ -143,7 +147,6 @@ static int mhuv2_probe(struct amba_device *adev, const struct amba_id *id)
 	struct mhuv2_link *mlink;
 	struct mbox_chan *chan;
 
-
 	/* Allocate memory for device */
 	mhuv2 = devm_kzalloc(dev, sizeof(*mhuv2), GFP_KERNEL);
 	if (!mhuv2)
@@ -153,12 +156,14 @@ static int mhuv2_probe(struct amba_device *adev, const struct amba_id *id)
 	if (!tx_base) {
 		dev_err(dev, "failed to map tx registers\n");
 		iounmap(rx_base);
+
 		return -ENOMEM;
 	}
 
 	rx_base = of_iomap((struct device_node *)np, 1);
 	if (!rx_base) {
 		dev_err(dev, "failed to map rx registers\n");
+
 		return -ENOMEM;
 	}
 
@@ -167,6 +172,7 @@ static int mhuv2_probe(struct amba_device *adev, const struct amba_id *id)
 		dev_err(dev, "invalid number of channels %d\n", pchans);
 		iounmap(rx_base);
 		iounmap(tx_base);
+
 		return -EINVAL;
 	}
 
@@ -174,6 +180,7 @@ static int mhuv2_probe(struct amba_device *adev, const struct amba_id *id)
 	if (!mhuv2->mlink) {
 		iounmap(rx_base);
 		iounmap(tx_base);
+
 		return -ENOMEM;
 	}
 
@@ -182,6 +189,7 @@ static int mhuv2_probe(struct amba_device *adev, const struct amba_id *id)
 		iounmap(rx_base);
 		iounmap(tx_base);
 		kfree(mhuv2->mlink);
+
 		return -ENOMEM;
 	}
 
@@ -214,10 +222,12 @@ static int mhuv2_probe(struct amba_device *adev, const struct amba_id *id)
 		iounmap(tx_base);
 		kfree(mhuv2->mlink);
 		kfree(mhuv2->chan);
+
 		return err;
 	}
 
 	dev_info(dev, "ARM MHUv2 Mailbox driver registered\n");
+
 	return 0;
 }
 
@@ -232,28 +242,28 @@ static int mhuv2_remove(struct amba_device *adev)
 
 static struct amba_id mhuv2_ids[] = {
 	{
-		.id     = 0x4b0d1,
-		.mask   = 0xfffff,
+		.id = 0x4b0d1,
+		.mask = 0xfffff,
 	},
 	{
-		.id     = 0xbb0d1,
-		.mask   = 0xfffff,
+		.id = 0xbb0d1,
+		.mask = 0xfffff,
 	},
 	{
-		.id     = 0xbb076,
-		.mask   = 0xfffff,
+		.id = 0xbb076,
+		.mask = 0xfffff,
 	},
 	{ 0, 0 },
 };
 MODULE_DEVICE_TABLE(amba, mhuv2_ids);
 
 static struct amba_driver arm_mhuv2_driver = {
-	.drv = {
-		.name	= "mhuv2",
+	.drv          = {
+		.name = "mhuv2",
 	},
-	.id_table	= mhuv2_ids,
-	.probe		= mhuv2_probe,
-	.remove		= mhuv2_remove,
+	.id_table     = mhuv2_ids,
+	.probe        = mhuv2_probe,
+	.remove       = mhuv2_remove,
 };
 module_amba_driver(arm_mhuv2_driver);
 
