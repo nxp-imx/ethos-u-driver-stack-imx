@@ -2,7 +2,7 @@
 
 /*
  * Message Handling Unit version 2 controller driver
- * Copyright (C) 2019 ARM Ltd.
+ * Copyright (C) 2019-2020 ARM Ltd.
  *
  * Based on drivers/mailbox/arm_mhu.c
  *
@@ -78,11 +78,46 @@ static int mhuv2_send_data(struct mbox_chan *chan,
 			   void *data)
 {
 	struct mhuv2_link *mlink = chan->con_priv;
+	struct arm_mhuv2 *mhuv2 = mbox_to_arm_mhuv2(chan->mbox);
 	u32 *arg = data;
+	u32 tmo = 100000;
+
+	/* If ACCESS_REQUEST is low, we have to wait for the other side
+	 * to relase ACCESS_READY before continuing. */
+	if (!readl_relaxed(mhuv2->base + MHU_V2_REG_ACC_REQ_OFS)) {
+		while (readl_relaxed(mhuv2->base + MHU_V2_REG_ACC_RDY_OFS) &&
+		       --tmo != 0)
+			continue;
+
+		if (!tmo)
+			goto err;
+
+		/* Request access and wait for other side to ack */
+		writel_relaxed(0x1, mhuv2->base + MHU_V2_REG_ACC_REQ_OFS);
+		tmo = 100000;
+		while (!readl_relaxed(mhuv2->base + MHU_V2_REG_ACC_RDY_OFS) &&
+		       --tmo != 0)
+			continue;
+
+		if (!tmo)
+			goto err;
+	} else {
+		while (!readl_relaxed(mhuv2->base + MHU_V2_REG_ACC_RDY_OFS) &&
+		       --tmo != 0)
+			continue;
+
+		if (!tmo)
+			goto err;
+	}
 
 	writel_relaxed(*arg, mlink->tx_reg + MHU_V2_REG_SET_OFS);
 
 	return 0;
+
+err:
+	dev_err(chan->mbox->dev, "Failed to acquire access to mhu.\n");
+
+	return 1;
 }
 
 static int mhuv2_startup(struct mbox_chan *chan)
