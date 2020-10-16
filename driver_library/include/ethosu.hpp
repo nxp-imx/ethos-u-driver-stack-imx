@@ -25,12 +25,9 @@
 #include <string>
 #include <vector>
 
-namespace EthosU
-{
+namespace EthosU {
 
-class Exception :
-    public std::exception
-{
+class Exception : public std::exception {
 public:
     Exception(const char *msg);
     virtual ~Exception() throw();
@@ -40,8 +37,7 @@ private:
     std::string msg;
 };
 
-class Device
-{
+class Device {
 public:
     Device(const char *device = "/dev/ethosu0");
     virtual ~Device();
@@ -52,8 +48,7 @@ private:
     int fd;
 };
 
-class Buffer
-{
+class Buffer {
 public:
     Buffer(Device &device, const size_t capacity);
     virtual ~Buffer();
@@ -73,8 +68,7 @@ private:
     const size_t dataCapacity;
 };
 
-class Network
-{
+class Network {
 public:
     Network(Device &device, std::shared_ptr<Buffer> &buffer);
     virtual ~Network();
@@ -93,13 +87,15 @@ private:
     std::vector<size_t> ofmDims;
 };
 
-class Inference
-{
+class Inference {
 public:
     template <typename T>
-    Inference(std::shared_ptr<Network> &network, const T &ifmBegin, const T &ifmEnd, const T &ofmBegin, const T &ofmEnd) :
-        network(network)
-    {
+    Inference(std::shared_ptr<Network> &network,
+              const T &ifmBegin,
+              const T &ifmEnd,
+              const T &ofmBegin,
+              const T &ofmEnd) :
+        network(network) {
         std::copy(ifmBegin, ifmEnd, std::back_inserter(ifmBuffers));
         std::copy(ofmBegin, ofmEnd, std::back_inserter(ofmBuffers));
         create();
@@ -122,4 +118,4 @@ private:
     std::vector<std::shared_ptr<Buffer>> ofmBuffers;
 };
 
-}
+} // namespace EthosU
