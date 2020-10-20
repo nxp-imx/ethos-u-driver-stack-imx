@@ -18,8 +18,6 @@
 
 #pragma once
 
-#include <uapi/ethosu.h>
-
 #include <algorithm>
 #include <memory>
 #include <string>
