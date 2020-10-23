@@ -104,6 +104,9 @@ int ethosu_mailbox_inference(struct ethosu_mailbox *mbox,
 			     struct ethosu_buffer **ifm,
 			     uint32_t ofm_count,
 			     struct ethosu_buffer **ofm,
-			     struct ethosu_buffer *network);
+			     struct ethosu_buffer *network,
+			     uint8_t *pmu_event_config,
+			     uint8_t pmu_event_config_count,
+			     uint8_t pmu_cycle_counter_enable);
 
 #endif /* ETHOSU_MAILBOX_H */

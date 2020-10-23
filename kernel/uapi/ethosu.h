@@ -49,10 +49,14 @@
 						   struct ethosu_uapi_network_create)
 #define ETHOSU_IOCTL_INFERENCE_CREATE   ETHOSU_IOR(0x30, \
 						   struct ethosu_uapi_inference_create)
-#define ETHOSU_IOCTL_INFERENCE_STATUS   ETHOSU_IO(0x31)
+#define ETHOSU_IOCTL_INFERENCE_STATUS   ETHOSU_IOR(0x31, \
+						   struct ethosu_uapi_result_status)
 
 /* Maximum number of IFM/OFM file descriptors per network */
 #define ETHOSU_FD_MAX                   16
+
+/* Maximum number of PMUs available */
+#define ETHOSU_PMU_EVENT_MAX             4
 
 /****************************************************************************
  * Types
@@ -95,6 +99,27 @@ struct ethosu_uapi_network_create {
 };
 
 /**
+ * struct ethosu_uapi_pmu_config - Configure performance counters
+ * @events:             Array of counters to configure, set to non-zero for
+ *                      each counter to enable corresponding event.
+ * @cycle_count:        Set to enable the cycle counter.
+ */
+struct ethosu_uapi_pmu_config {
+	__u32 events[ETHOSU_PMU_EVENT_MAX];
+	__u32 cycle_count;
+};
+
+/**
+ * struct ethosu_uapi_pmu_counts - Status of performance counters
+ * @events:             Count for respective configured events.
+ * @cycle_count:        Count for cycle counter.
+ */
+struct ethosu_uapi_pmu_counts {
+	__u32 events[ETHOSU_PMU_EVENT_MAX];
+	__u64 cycle_count;
+};
+
+/**
  * struct ethosu_uapi_inference_create - Create network request
  * @ifm_count:		Number of IFM file descriptors
  * @ifm_fd:		IFM buffer file descriptors
@@ -102,10 +127,24 @@ struct ethosu_uapi_network_create {
  * @ofm_fd:		OFM buffer file descriptors
  */
 struct ethosu_uapi_inference_create {
-	__u32 ifm_count;
-	__u32 ifm_fd[ETHOSU_FD_MAX];
-	__u32 ofm_count;
-	__u32 ofm_fd[ETHOSU_FD_MAX];
+	__u32                         ifm_count;
+	__u32                         ifm_fd[ETHOSU_FD_MAX];
+	__u32                         ofm_count;
+	__u32                         ofm_fd[ETHOSU_FD_MAX];
+	struct ethosu_uapi_pmu_config pmu_config;
+};
+
+/**
+ * struct ethosu_uapi_result_status - Status of inference
+ * @status	Status of run inference.
+ * @pmu_config	Configured performance counters.
+ * @pmu_count	Perfomance counters values, when status is
+ *              ETHOSU_UAPI_STATUS_OK.
+ */
+struct ethosu_uapi_result_status {
+	enum ethosu_uapi_status       status;
+	struct ethosu_uapi_pmu_config pmu_config;
+	struct ethosu_uapi_pmu_counts pmu_count;
 };
 
 #endif

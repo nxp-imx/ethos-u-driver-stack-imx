@@ -89,7 +89,10 @@ static int ethosu_inference_send(struct ethosu_inference *inf)
 	ret = ethosu_mailbox_inference(&inf->edev->mailbox, inf,
 				       inf->ifm_count, inf->ifm,
 				       inf->ofm_count, inf->ofm,
-				       inf->net->buf);
+				       inf->net->buf,
+				       inf->pmu_event_config,
+				       ETHOSU_PMU_EVENT_MAX,
+				       inf->pmu_cycle_counter_enable);
 	if (ret)
 		return ret;
 
@@ -172,7 +175,8 @@ static long ethosu_inference_ioctl(struct file *file,
 				   unsigned long arg)
 {
 	struct ethosu_inference *inf = file->private_data;
-	int ret = -EINVAL;
+	void __user *udata = (void __user *)arg;
+	int ret;
 
 	ret = mutex_lock_interruptible(&inf->edev->mutex);
 	if (ret)
@@ -182,11 +186,27 @@ static long ethosu_inference_ioctl(struct file *file,
 
 	switch (cmd) {
 	case ETHOSU_IOCTL_INFERENCE_STATUS: {
-		ret = inf->status;
+		struct ethosu_uapi_result_status uapi;
+		int i;
+
+		uapi.status = inf->status;
+
+		for (i = 0; i < ETHOSU_PMU_EVENT_MAX; i++) {
+			uapi.pmu_config.events[i] =
+				inf->pmu_event_config[i];
+			uapi.pmu_count.events[i] =
+				inf->pmu_event_count[i];
+		}
+
+		uapi.pmu_config.cycle_count = inf->pmu_cycle_counter_enable;
+		uapi.pmu_count.cycle_count = inf->pmu_cycle_counter_count;
 
 		dev_info(inf->edev->dev,
 			 "Ioctl: Inference status. status=%s (%d)\n",
-			 status_to_string(ret), ret);
+			 status_to_string(uapi.status), uapi.status);
+
+		ret = copy_to_user(udata, &uapi, sizeof(uapi)) ? -EFAULT : 0;
+
 		break;
 	}
 	default: {
@@ -242,6 +262,25 @@ int ethosu_inference_create(struct ethosu_device *edev,
 
 		inf->ofm_count++;
 	}
+
+	/* Configure PMU and cycle counter */
+	dev_info(inf->edev->dev,
+		 "Configuring events for PMU. events=[%u, %u, %u, %u]\n",
+		 uapi->pmu_config.events[0], uapi->pmu_config.events[1],
+		 uapi->pmu_config.events[2], uapi->pmu_config.events[3]);
+
+	/* Configure events and reset count for all events */
+	for (i = 0; i < ETHOSU_PMU_EVENT_MAX; i++) {
+		inf->pmu_event_config[i] = uapi->pmu_config.events[i];
+		inf->pmu_event_count[i] = 0;
+	}
+
+	if (uapi->pmu_config.cycle_count)
+		dev_info(inf->edev->dev, "Enabling cycle counter\n");
+
+	/* Configure cycle counter and reset any previous count */
+	inf->pmu_cycle_counter_enable = uapi->pmu_config.cycle_count;
+	inf->pmu_cycle_counter_count = 0;
 
 	/* Increment network reference count */
 	ethosu_network_get(net);
@@ -321,6 +360,7 @@ void ethosu_inference_rsp(struct ethosu_device *edev,
 	struct ethosu_inference *inf =
 		(struct ethosu_inference *)rsp->user_arg;
 	int ret;
+	int i;
 
 	ret = ethosu_inference_find(inf, &edev->inference_list);
 	if (ret) {
@@ -352,6 +392,26 @@ void ethosu_inference_rsp(struct ethosu_device *edev,
 		inf->status = ETHOSU_UAPI_STATUS_ERROR;
 	}
 
+	for (i = 0; i < ETHOSU_CORE_PMU_MAX; i++) {
+		inf->pmu_event_config[i] = rsp->pmu_event_config[i];
+		inf->pmu_event_count[i] = rsp->pmu_event_count[i];
+	}
+
+	inf->pmu_cycle_counter_enable = rsp->pmu_cycle_counter_enable;
+	inf->pmu_cycle_counter_count = rsp->pmu_cycle_counter_count;
+
+	dev_info(edev->dev,
+		 "PMU events. config=[%u, %u %u, %u], count=[%u, %u, %u, %u]\n",
+		 inf->pmu_event_config[0], inf->pmu_event_count[0],
+		 inf->pmu_event_config[1], inf->pmu_event_count[1],
+		 inf->pmu_event_config[2], inf->pmu_event_count[2],
+		 inf->pmu_event_config[3], inf->pmu_event_count[3]
+		 );
+
+	dev_info(edev->dev,
+		 "PMU cycle counter. enable=%u, count=%llu\n",
+		 inf->pmu_cycle_counter_enable,
+		 inf->pmu_cycle_counter_count);
 	wake_up_interruptible(&inf->waitq);
 
 	ethosu_inference_put(inf);

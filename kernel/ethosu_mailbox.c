@@ -175,20 +175,34 @@ int ethosu_mailbox_inference(struct ethosu_mailbox *mbox,
 			     struct ethosu_buffer **ifm,
 			     uint32_t ofm_count,
 			     struct ethosu_buffer **ofm,
-			     struct ethosu_buffer *network)
+			     struct ethosu_buffer *network,
+			     uint8_t *pmu_event_config,
+			     uint8_t pmu_event_config_count,
+			     uint8_t pmu_cycle_counter_enable)
 {
 	struct ethosu_core_inference_req inf;
 	uint32_t i;
 
+	/* Verify that the uapi and core has the same number of pmus */
+	if (pmu_event_config_count != ETHOSU_CORE_PMU_MAX) {
+		dev_err(mbox->dev, "PMU count misconfigured.\n");
+
+		return -EINVAL;
+	}
+
 	inf.user_arg = (ptrdiff_t)user_arg;
 	inf.ifm_count = ifm_count;
 	inf.ofm_count = ofm_count;
+	inf.pmu_cycle_counter_enable = pmu_cycle_counter_enable;
 
 	for (i = 0; i < ifm_count; i++)
 		ethosu_core_set_size(ifm[i], &inf.ifm[i]);
 
 	for (i = 0; i < ofm_count; i++)
 		ethosu_core_set_capacity(ofm[i], &inf.ofm[i]);
+
+	for (i = 0; i < ETHOSU_CORE_PMU_MAX; i++)
+		inf.pmu_event_config[i] = pmu_event_config[i];
 
 	ethosu_core_set_size(network, &inf.network);
 

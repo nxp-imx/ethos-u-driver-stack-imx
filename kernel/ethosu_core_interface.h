@@ -30,6 +30,9 @@
 /** Maximum number of IFM/OFM buffers per inference */
 #define ETHOSU_CORE_BUFFER_MAX 16
 
+/** Maximum number of PMU counters to be returned for inference */
+#define ETHOSU_CORE_PMU_MAX 4
+
 /**
  * enum ethosu_core_msg_type - Message types
  *
@@ -87,6 +90,8 @@ struct ethosu_core_inference_req {
 	uint32_t                  ofm_count;
 	struct ethosu_core_buffer ofm[ETHOSU_CORE_BUFFER_MAX];
 	struct ethosu_core_buffer network;
+	uint8_t                   pmu_event_config[ETHOSU_CORE_PMU_MAX];
+	uint32_t                  pmu_cycle_counter_enable;
 };
 
 struct ethosu_core_inference_rsp {
@@ -94,6 +99,10 @@ struct ethosu_core_inference_rsp {
 	uint32_t ofm_count;
 	uint32_t ofm_size[ETHOSU_CORE_BUFFER_MAX];
 	uint32_t status;
+	uint8_t  pmu_event_config[ETHOSU_CORE_PMU_MAX];
+	uint32_t pmu_event_count[ETHOSU_CORE_PMU_MAX];
+	uint32_t pmu_cycle_counter_enable;
+	uint64_t pmu_cycle_counter_count;
 };
 
 #endif

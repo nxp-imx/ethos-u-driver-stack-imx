@@ -44,15 +44,19 @@ struct file;
 
 /**
  * struct ethosu_inference - Inference struct
- * @edev:	Arm Ethos-U device
- * @file:	File handle
- * @kref:	Reference counter
- * @waitq:	Wait queue
- * @ifm:	Pointer to IFM buffer
- * @ofm:	Pointer to OFM buffer
- * @net:	Pointer to network
- * @pending:	Pending response from the firmware
- * @status:	Inference status
+ * @edev:			Arm Ethos-U device
+ * @file:			File handle
+ * @kref:			Reference counter
+ * @waitq:			Wait queue
+ * @ifm:			Pointer to IFM buffer
+ * @ofm:			Pointer to OFM buffer
+ * @net:			Pointer to network
+ * @pending:			Pending response from the firmware
+ * @status:			Inference status
+ * @pmu_event_config:		PMU event configuration
+ * @pmu_event_count:		PMU event count after inference
+ * @pmu_cycle_counter_enable:	PMU cycle counter config
+ * @pmu_cycle_counter_count:	PMU cycle counter count after inference
  */
 struct ethosu_inference {
 	struct ethosu_device    *edev;
@@ -66,6 +70,10 @@ struct ethosu_inference {
 	struct ethosu_network   *net;
 	bool                    pending;
 	enum ethosu_uapi_status status;
+	uint8_t                 pmu_event_config[ETHOSU_PMU_EVENT_MAX];
+	uint32_t                pmu_event_count[ETHOSU_PMU_EVENT_MAX];
+	uint32_t                pmu_cycle_counter_enable;
+	uint64_t                pmu_cycle_counter_count;
 	struct list_head        list;
 };
 
