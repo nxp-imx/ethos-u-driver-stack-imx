@@ -40,6 +40,9 @@ void help(const string exe) {
     cerr << "    -n --network    File to read network from.\n";
     cerr << "    -i --ifm        File to read IFM from.\n";
     cerr << "    -o --ofm        File to write IFM to.\n";
+    cerr << "    -P --pmu [0.." << Inference::getMaxPmuEventCounters() << "] eventid.\n";
+    cerr << "                    PMU counter to enable followed by eventid, can be passed multiple times.\n";
+    cerr << "    -C --cycles     Enable cycle counter for inference.\n";
     cerr << "    -t --timeout    Timeout in seconds (default " << defaultTimeout << ").\n";
     cerr << "    -p              Print OFM.\n";
     cerr << endl;
@@ -70,7 +73,11 @@ shared_ptr<Buffer> allocAndFill(Device &device, const string filename) {
     return buffer;
 }
 
-shared_ptr<Inference> createInference(Device &device, shared_ptr<Network> &network, const string &filename) {
+shared_ptr<Inference> createInference(Device &device,
+                                      shared_ptr<Network> &network,
+                                      const string &filename,
+                                      const std::vector<uint8_t> &counters,
+                                      bool enableCycleCounter) {
     // Open IFM file
     ifstream stream(filename, ios::binary);
     if (!stream.is_open()) {
@@ -110,7 +117,8 @@ shared_ptr<Inference> createInference(Device &device, shared_ptr<Network> &netwo
         ofm.push_back(make_shared<Buffer>(device, size));
     }
 
-    return make_shared<Inference>(network, ifm.begin(), ifm.end(), ofm.begin(), ofm.end());
+    return make_shared<Inference>(
+        network, ifm.begin(), ifm.end(), ofm.begin(), ofm.end(), counters, enableCycleCounter);
 }
 
 ostream &operator<<(ostream &os, Buffer &buf) {
@@ -130,9 +138,11 @@ int main(int argc, char *argv[]) {
     const string exe = argv[0];
     string networkArg;
     list<string> ifmArg;
+    vector<uint8_t> enabledCounters(Inference::getMaxPmuEventCounters());
     string ofmArg;
-    int timeout = defaultTimeout;
-    bool print  = false;
+    int timeout             = defaultTimeout;
+    bool print              = false;
+    bool enableCycleCounter = false;
 
     for (int i = 1; i < argc; ++i) {
         const string arg(argv[i]);
@@ -152,6 +162,23 @@ int main(int argc, char *argv[]) {
         } else if (arg == "--timeout" || arg == "-t") {
             rangeCheck(++i, argc, arg);
             timeout = stoi(argv[i]);
+        } else if (arg == "--pmu" || arg == "-P") {
+            unsigned pmu = 0, event = 0;
+            rangeCheck(++i, argc, arg);
+            pmu = stoi(argv[i]);
+
+            rangeCheck(++i, argc, arg);
+            event = stoi(argv[i]);
+
+            if (pmu >= enabledCounters.size()) {
+                cerr << "PMU out of bounds!" << endl;
+                help(exe);
+                exit(1);
+            }
+            cout << argv[i] << " -> Enabling " << pmu << " with event " << event << endl;
+            enabledCounters[pmu] = event;
+        } else if (arg == "--cycles" || arg == "-C") {
+            enableCycleCounter = true;
         } else if (arg == "-p") {
             print = true;
         } else {
@@ -191,14 +218,19 @@ int main(int argc, char *argv[]) {
         list<shared_ptr<Inference>> inferences;
         for (auto &filename : ifmArg) {
             cout << "Create inference" << endl;
-            inferences.push_back(createInference(device, network, filename));
+            inferences.push_back(createInference(device, network, filename, enabledCounters, enableCycleCounter));
         }
 
         cout << "Wait for inferences" << endl;
 
         int ofmIndex = 0;
         for (auto &inference : inferences) {
-            inference->wait(timeout);
+
+            /* make sure the wait completes ok */
+            if (inference->wait(timeout) <= 0) {
+                cout << "Failed to wait for inference completion" << endl;
+                exit(1);
+            }
 
             string status = inference->failed() ? "failed" : "success";
             cout << "Inference status: " << status << endl;
@@ -211,6 +243,7 @@ int main(int argc, char *argv[]) {
             }
 
             if (!inference->failed()) {
+                /* The inference completed and has ok status */
                 for (auto &ofmBuffer : inference->getOfmBuffers()) {
                     cout << "OFM size: " << ofmBuffer->size() << endl;
 
@@ -220,6 +253,20 @@ int main(int argc, char *argv[]) {
 
                     ofmStream.write(ofmBuffer->data(), ofmBuffer->size());
                 }
+
+                /* Read out PMU counters if configured */
+                if (std::count(enabledCounters.begin(), enabledCounters.end(), 0) <
+                    Inference::getMaxPmuEventCounters()) {
+
+                    const std::vector<uint32_t> pmus = inference->getPmuCounters();
+                    cout << "PMUs : [";
+                    for (auto p : pmus) {
+                        cout << " " << p;
+                    }
+                    cout << " ]" << endl;
+                }
+                if (enableCycleCounter)
+                    cout << "Cycle counter: " << inference->getCycleCounter() << endl;
             }
 
             ofmIndex++;
