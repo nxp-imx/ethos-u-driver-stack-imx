@@ -96,19 +96,46 @@ public:
         network(network) {
         std::copy(ifmBegin, ifmEnd, std::back_inserter(ifmBuffers));
         std::copy(ofmBegin, ofmEnd, std::back_inserter(ofmBuffers));
-        create();
+        std::vector<uint32_t> counterConfigs = initializeCounterConfig();
+
+        create(counterConfigs, false);
     }
+    template <typename T, typename U>
+    Inference(std::shared_ptr<Network> &network,
+              const T &ifmBegin,
+              const T &ifmEnd,
+              const T &ofmBegin,
+              const T &ofmEnd,
+              const U &counters,
+              bool enableCycleCounter) :
+        network(network) {
+        std::copy(ifmBegin, ifmEnd, std::back_inserter(ifmBuffers));
+        std::copy(ofmBegin, ofmEnd, std::back_inserter(ofmBuffers));
+        std::vector<uint32_t> counterConfigs = initializeCounterConfig();
+
+        if (counters.size() > counterConfigs.size())
+            throw EthosU::Exception("PMU Counters argument to large.");
+
+        std::copy(counters.begin(), counters.end(), counterConfigs.begin());
+        create(counterConfigs, enableCycleCounter);
+    }
+
     virtual ~Inference();
 
-    void wait(int timeoutSec = -1);
+    int wait(int timeoutSec = -1);
+    const std::vector<uint32_t> getPmuCounters();
+    uint64_t getCycleCounter();
     bool failed();
     int getFd();
     std::shared_ptr<Network> getNetwork();
     std::vector<std::shared_ptr<Buffer>> &getIfmBuffers();
     std::vector<std::shared_ptr<Buffer>> &getOfmBuffers();
 
+    static uint32_t getMaxPmuEventCounters();
+
 private:
-    void create();
+    void create(std::vector<uint32_t> &counterConfigs, bool enableCycleCounter);
+    std::vector<uint32_t> initializeCounterConfig();
 
     int fd;
     std::shared_ptr<Network> network;

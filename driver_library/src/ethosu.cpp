@@ -232,7 +232,7 @@ Inference::~Inference() {
     close(fd);
 }
 
-void Inference::create() {
+void Inference::create(std::vector<uint32_t> &counterConfigs, bool cycleCounterEnable = false) {
     ethosu_uapi_inference_create uapi;
 
     if (ifmBuffers.size() > ETHOSU_FD_MAX) {
@@ -241,6 +241,10 @@ void Inference::create() {
 
     if (ofmBuffers.size() > ETHOSU_FD_MAX) {
         throw Exception("OFM buffer overflow");
+    }
+
+    if (counterConfigs.size() != ETHOSU_PMU_EVENT_MAX) {
+        throw Exception("Wrong size of counter configurations");
     }
 
     uapi.ifm_count = 0;
@@ -253,10 +257,24 @@ void Inference::create() {
         uapi.ofm_fd[uapi.ofm_count++] = it->getFd();
     }
 
+    for (int i = 0; i < ETHOSU_PMU_EVENT_MAX; i++) {
+        uapi.pmu_config.events[i] = counterConfigs[i];
+    }
+
+    uapi.pmu_config.cycle_count = cycleCounterEnable;
+
     fd = network->ioctl(ETHOSU_IOCTL_INFERENCE_CREATE, static_cast<void *>(&uapi));
 }
 
-void Inference::wait(int timeoutSec) {
+std::vector<uint32_t> Inference::initializeCounterConfig() {
+    return std::vector<uint32_t>(ETHOSU_PMU_EVENT_MAX, 0);
+}
+
+uint32_t Inference::getMaxPmuEventCounters() {
+    return ETHOSU_PMU_EVENT_MAX;
+}
+
+int Inference::wait(int timeoutSec) {
     pollfd pfd;
 
     pfd.fd      = fd;
@@ -266,12 +284,39 @@ void Inference::wait(int timeoutSec) {
     int ret = ::poll(&pfd, 1, timeoutSec * 1000);
 
     cout << "Poll. ret=" << ret << ", revents=" << pfd.revents << endl;
+
+    return ret;
 }
 
 bool Inference::failed() {
-    ethosu_uapi_status status = static_cast<ethosu_uapi_status>(eioctl(fd, ETHOSU_IOCTL_INFERENCE_STATUS));
+    ethosu_uapi_result_status uapi;
 
-    return status != ETHOSU_UAPI_STATUS_OK;
+    eioctl(fd, ETHOSU_IOCTL_INFERENCE_STATUS, static_cast<void *>(&uapi));
+
+    return uapi.status != ETHOSU_UAPI_STATUS_OK;
+}
+
+const std::vector<uint32_t> Inference::getPmuCounters() {
+    ethosu_uapi_result_status uapi;
+    std::vector<uint32_t> counterValues = std::vector<uint32_t>(ETHOSU_PMU_EVENT_MAX, 0);
+
+    eioctl(fd, ETHOSU_IOCTL_INFERENCE_STATUS, static_cast<void *>(&uapi));
+
+    for (int i = 0; i < ETHOSU_PMU_EVENT_MAX; i++) {
+        if (uapi.pmu_config.events[i]) {
+            counterValues.at(i) = uapi.pmu_count.events[i];
+        }
+    }
+
+    return counterValues;
+}
+
+uint64_t Inference::getCycleCounter() {
+    ethosu_uapi_result_status uapi;
+
+    eioctl(fd, ETHOSU_IOCTL_INFERENCE_STATUS, static_cast<void *>(&uapi));
+
+    return uapi.pmu_count.cycle_count;
 }
 
 int Inference::getFd() {
