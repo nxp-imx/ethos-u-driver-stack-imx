@@ -401,12 +401,11 @@ void ethosu_inference_rsp(struct ethosu_device *edev,
 	inf->pmu_cycle_counter_count = rsp->pmu_cycle_counter_count;
 
 	dev_info(edev->dev,
-		 "PMU events. config=[%u, %u %u, %u], count=[%u, %u, %u, %u]\n",
-		 inf->pmu_event_config[0], inf->pmu_event_count[0],
-		 inf->pmu_event_config[1], inf->pmu_event_count[1],
-		 inf->pmu_event_config[2], inf->pmu_event_count[2],
-		 inf->pmu_event_config[3], inf->pmu_event_count[3]
-		 );
+		 "PMU events. config=[%u, %u, %u, %u], count=[%u, %u, %u, %u]\n",
+		 inf->pmu_event_config[0], inf->pmu_event_config[1],
+		 inf->pmu_event_config[2], inf->pmu_event_config[3],
+		 inf->pmu_event_count[0], inf->pmu_event_count[1],
+		 inf->pmu_event_count[2], inf->pmu_event_count[3]);
 
 	dev_info(edev->dev,
 		 "PMU cycle counter. enable=%u, count=%llu\n",
