@@ -27,6 +27,10 @@
 #include <stdint.h>
 #endif
 
+#ifdef __cplusplus
+namespace EthosU {
+#endif
+
 /** Maximum number of IFM/OFM buffers per inference */
 #define ETHOSU_CORE_BUFFER_MAX 16
 
@@ -143,5 +147,8 @@ struct ethosu_core_msg_err {
 	uint32_t type;     /* optional use of extra error code */
 	char     msg[128];
 };
+#ifdef __cplusplus
+} /*namespace EthosU */
+#endif
 
 #endif

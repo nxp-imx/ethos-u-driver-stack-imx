@@ -28,6 +28,10 @@
 #include <linux/ioctl.h>
 #include <linux/types.h>
 
+#ifdef __cplusplus
+namespace EthosU {
+#endif
+
 /****************************************************************************
  * Defines
  ****************************************************************************/
@@ -148,4 +152,7 @@ struct ethosu_uapi_result_status {
 	struct ethosu_uapi_pmu_counts pmu_count;
 };
 
+#ifdef __cplusplus
+} /* namespace EthosU */
+#endif
 #endif
