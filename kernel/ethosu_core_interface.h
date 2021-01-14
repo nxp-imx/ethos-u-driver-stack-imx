@@ -33,16 +33,24 @@
 /** Maximum number of PMU counters to be returned for inference */
 #define ETHOSU_CORE_PMU_MAX 4
 
+#define ETHOSU_CORE_MSG_MAGIC 0x41457631
+#define ETHOSU_CORE_MSG_VERSION_MAJOR 0
+#define ETHOSU_CORE_MSG_VERSION_MINOR 2
+#define ETHOSU_CORE_MSG_VERSION_PATCH 0
+
 /**
  * enum ethosu_core_msg_type - Message types
  *
  * Types for the messages sent between the host and the core subsystem.
  */
 enum ethosu_core_msg_type {
-	ETHOSU_CORE_MSG_PING = 1,
+	ETHOSU_CORE_MSG_ERR = 1,
+	ETHOSU_CORE_MSG_PING,
 	ETHOSU_CORE_MSG_PONG,
 	ETHOSU_CORE_MSG_INFERENCE_REQ,
 	ETHOSU_CORE_MSG_INFERENCE_RSP,
+	ETHOSU_CORE_MSG_VERSION_REQ,
+	ETHOSU_CORE_MSG_VERSION_RSP,
 	ETHOSU_CORE_MSG_MAX
 };
 
@@ -50,6 +58,7 @@ enum ethosu_core_msg_type {
  * struct ethosu_core_msg - Message header
  */
 struct ethosu_core_msg {
+	uint32_t magic;
 	uint32_t type;
 	uint32_t length;
 };
@@ -103,6 +112,36 @@ struct ethosu_core_inference_rsp {
 	uint32_t pmu_event_count[ETHOSU_CORE_PMU_MAX];
 	uint32_t pmu_cycle_counter_enable;
 	uint64_t pmu_cycle_counter_count;
+};
+
+/**
+ * struct ethosu_core_msg_verson - Message protocol version
+ */
+struct ethosu_core_msg_version {
+	uint8_t major;
+	uint8_t minor;
+	uint8_t patch;
+	uint8_t _reserved;
+};
+
+/**
+ * enum ethosu_core_msg_err_type - Error types
+ */
+enum ethosu_core_msg_err_type {
+	ETHOSU_CORE_MSG_ERR_GENERIC = 0,
+	ETHOSU_CORE_MSG_ERR_UNSUPPORTED_TYPE,
+	ETHOSU_CORE_MSG_ERR_INVALID_PAYLOAD,
+	ETHOSU_CORE_MSG_ERR_INVALID_SIZE,
+	ETHOSU_CORE_MSG_ERR_INVALID_MAGIC,
+	ETHOSU_CORE_MSG_ERR_MAX
+};
+
+/**
+ * struct ethosu_core_msg_err - Error message struct
+ */
+struct ethosu_core_msg_err {
+	uint32_t type;     /* optional use of extra error code */
+	char     msg[128];
 };
 
 #endif

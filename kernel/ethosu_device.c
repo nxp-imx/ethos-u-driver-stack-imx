@@ -55,14 +55,17 @@
  * Functions
  ****************************************************************************/
 
+/* Incoming messages */
 static int ethosu_handle_msg(struct ethosu_device *edev)
 {
+	int ret;
 	struct ethosu_core_msg header;
 
 	union {
+		struct ethosu_core_msg_err       error;
 		struct ethosu_core_inference_rsp inf;
+		struct ethosu_core_msg_version   version;
 	} data;
-	int ret;
 
 	/* Read message */
 	ret = ethosu_mailbox_read(&edev->mailbox, &header, &data, sizeof(data));
@@ -70,24 +73,71 @@ static int ethosu_handle_msg(struct ethosu_device *edev)
 		return ret;
 
 	switch (header.type) {
+	case ETHOSU_CORE_MSG_ERR:
+		if (header.length != sizeof(data.error)) {
+			dev_warn(edev->dev,
+				 "Msg: Error message of incorrect size. size=%u, expected=%zu\n", header.length,
+				 sizeof(data.error));
+			ret = -EBADMSG;
+			break;
+		}
+
+		data.error.msg[sizeof(data.error.msg) - 1] = '\0';
+		dev_warn(edev->dev, "Msg: Error. type=%u, msg=\"%s\"\n",
+			 data.error.type, data.error.msg);
+		ret = -EBADMSG;
+		break;
 	case ETHOSU_CORE_MSG_PING:
 		dev_info(edev->dev, "Msg: Ping\n");
-		ret = ethosu_mailbox_ping(&edev->mailbox);
+		ret = ethosu_mailbox_pong(&edev->mailbox);
 		break;
 	case ETHOSU_CORE_MSG_PONG:
 		dev_info(edev->dev, "Msg: Pong\n");
 		break;
 	case ETHOSU_CORE_MSG_INFERENCE_RSP:
+		if (header.length != sizeof(data.inf)) {
+			dev_warn(edev->dev,
+				 "Msg: Inference response of incorrect size. size=%u, expected=%zu\n", header.length,
+				 sizeof(data.inf));
+			ret = -EBADMSG;
+			break;
+		}
+
 		dev_info(edev->dev,
 			 "Msg: Inference response. user_arg=0x%llx, ofm_count=%u, status=%u\n",
 			 data.inf.user_arg, data.inf.ofm_count,
 			 data.inf.status);
 		ethosu_inference_rsp(edev, &data.inf);
 		break;
+	case ETHOSU_CORE_MSG_VERSION_RSP:
+		if (header.length != sizeof(data.version)) {
+			dev_warn(edev->dev,
+				 "Msg: Version response of incorrect size. size=%u, expected=%zu\n", header.length,
+				 sizeof(data.version));
+			ret = -EBADMSG;
+			break;
+		}
+
+		dev_info(edev->dev, "Msg: Version response v%u.%u.%u\n",
+			 data.version.major, data.version.minor,
+			 data.version.patch);
+
+		/* Check major and minor version match, else return error */
+		if (data.version.major != ETHOSU_CORE_MSG_VERSION_MAJOR ||
+		    data.version.minor != ETHOSU_CORE_MSG_VERSION_MINOR) {
+			dev_warn(edev->dev, "Msg: Version mismatch detected! ");
+			dev_warn(edev->dev, "Local version: v%u.%u.%u\n",
+				 ETHOSU_CORE_MSG_VERSION_MAJOR,
+				 ETHOSU_CORE_MSG_VERSION_MINOR,
+				 ETHOSU_CORE_MSG_VERSION_PATCH);
+		}
+
+		break;
+
 	default:
-		dev_warn(edev->dev,
-			 "Msg: Unsupported msg type. type=%u, length=%u",
-			 header.type, header.length);
+		/* This should not happen due to version checks */
+		dev_warn(edev->dev, "Msg: Protocol error\n");
+		ret = -EPROTO;
 		break;
 	}
 
@@ -122,6 +172,10 @@ static long ethosu_ioctl(struct file *file,
 	dev_info(edev->dev, "Ioctl. cmd=%u, arg=%lu\n", cmd, arg);
 
 	switch (cmd) {
+	case ETHOSU_IOCTL_VERSION_REQ:
+		dev_info(edev->dev, "Ioctl: Send version request\n");
+		ret = ethosu_mailbox_version_request(&edev->mailbox);
+		break;
 	case ETHOSU_IOCTL_PING: {
 		dev_info(edev->dev, "Ioctl: Send ping\n");
 		ret = ethosu_mailbox_ping(&edev->mailbox);
@@ -173,6 +227,11 @@ static void ethosu_mbox_rx(void *user_arg)
 
 	do {
 		ret = ethosu_handle_msg(edev);
+		if (ret && ret != -ENOMSG)
+			/* Need to start over in case of error, empty the queue
+			 * by fast-forwarding read position to write position.
+			 * */
+			ethosu_mailbox_reset(&edev->mailbox);
 	} while (ret == 0);
 
 	mutex_unlock(&edev->mutex);

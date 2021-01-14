@@ -206,8 +206,8 @@ int main(int argc, char *argv[]) {
     try {
         Device device;
 
-        cout << "Send ping" << endl;
-        device.ioctl(ETHOSU_IOCTL_PING);
+        cout << "Send version request" << endl;
+        device.ioctl(ETHOSU_IOCTL_VERSION_REQ);
 
         /* Create network */
         cout << "Create network" << endl;

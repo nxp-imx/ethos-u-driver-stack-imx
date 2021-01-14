@@ -105,7 +105,10 @@ static int ethosu_queue_write_msg(struct ethosu_mailbox *mbox,
 				  void *data,
 				  size_t length)
 {
-	struct ethosu_core_msg msg = { .type = type, .length = length };
+	struct ethosu_core_msg msg = {
+		.magic = ETHOSU_CORE_MSG_MAGIC,
+		.type  = type,                 .length= length
+	};
 	const struct kvec vec[2] = {
 		{ &msg, sizeof(msg) },
 		{ data, length      }
@@ -123,9 +126,12 @@ static int ethosu_queue_read(struct ethosu_mailbox *mbox,
 	uint8_t *dst = (uint8_t *)data;
 	const uint8_t *end = dst + length;
 	uint32_t rpos = queue->header.read;
+	size_t queue_avail = ethosu_queue_available(queue);
 
-	if (length > ethosu_queue_available(queue))
+	if (queue_avail == 0)
 		return -ENOMSG;
+	else if (length > queue_avail)
+		return -EBADMSG;
 
 	while (dst < end) {
 		*dst++ = src[rpos];
@@ -137,6 +143,11 @@ static int ethosu_queue_read(struct ethosu_mailbox *mbox,
 	return 0;
 }
 
+void ethosu_mailbox_reset(struct ethosu_mailbox *mbox)
+{
+	mbox->out_queue->header.read = mbox->out_queue->header.write;
+}
+
 int ethosu_mailbox_read(struct ethosu_mailbox *mbox,
 			struct ethosu_core_msg *header,
 			void *data,
@@ -144,22 +155,44 @@ int ethosu_mailbox_read(struct ethosu_mailbox *mbox,
 {
 	int ret;
 
-	/* Read message header */
+	/* Read message header magic */
 	ret = ethosu_queue_read(mbox, header, sizeof(*header));
-	if (ret)
-		return ret;
+	if (ret) {
+		if (ret != -ENOMSG)
+			dev_warn(mbox->dev,
+				 "Msg: Failed to read message header\n");
 
-	dev_info(mbox->dev, "mbox: Read msg header. type=%u, length=%u",
-		 header->type, header->length);
+		return ret;
+	}
+
+	if (header->magic != ETHOSU_CORE_MSG_MAGIC) {
+		dev_warn(mbox->dev,
+			 "Msg: Invalid magic. Got: %08X but expected %08X\n",
+			 header->magic, ETHOSU_CORE_MSG_MAGIC);
+
+		return -EINVAL;
+	}
+
+	dev_info(mbox->dev,
+		 "mbox: Read msg header. magic=%08X, type=%u, length=%u",
+		 header->magic, header->type, header->length);
 
 	/* Check that payload is not larger than allocated buffer */
-	if (header->length > length)
-		return -ENOMEM;
+	if (header->length > length) {
+		dev_warn(mbox->dev,
+			 "Msg: Buffer size (%zu) too small for message (%u)\n",
+			 sizeof(data), header->length);
 
-	/* Ready payload data */
+		return -ENOMEM;
+	}
+
+	/* Read payload data */
 	ret = ethosu_queue_read(mbox, data, header->length);
-	if (ret)
+	if (ret) {
+		dev_warn(mbox->dev, "Msg: Failed to read payload data\n");
+
 		return -EBADMSG;
+	}
 
 	return 0;
 }
@@ -167,6 +200,17 @@ int ethosu_mailbox_read(struct ethosu_mailbox *mbox,
 int ethosu_mailbox_ping(struct ethosu_mailbox *mbox)
 {
 	return ethosu_queue_write_msg(mbox, ETHOSU_CORE_MSG_PING, NULL, 0);
+}
+
+int ethosu_mailbox_pong(struct ethosu_mailbox *mbox)
+{
+	return ethosu_queue_write_msg(mbox, ETHOSU_CORE_MSG_PONG, NULL, 0);
+}
+
+int ethosu_mailbox_version_request(struct ethosu_mailbox *mbox)
+{
+	return ethosu_queue_write_msg(mbox, ETHOSU_CORE_MSG_VERSION_REQ, NULL,
+				      0);
 }
 
 int ethosu_mailbox_inference(struct ethosu_mailbox *mbox,

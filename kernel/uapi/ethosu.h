@@ -39,6 +39,7 @@
 #define ETHOSU_IOWR(nr, type)           _IOWR(ETHOSU_IOCTL_BASE, nr, type)
 
 #define ETHOSU_IOCTL_PING               ETHOSU_IO(0x00)
+#define ETHOSU_IOCTL_VERSION_REQ        ETHOSU_IO(0x01)
 #define ETHOSU_IOCTL_BUFFER_CREATE      ETHOSU_IOR(0x10, \
 						   struct ethosu_uapi_buffer_create)
 #define ETHOSU_IOCTL_BUFFER_SET         ETHOSU_IOR(0x11, \

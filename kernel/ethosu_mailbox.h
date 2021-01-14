@@ -24,6 +24,7 @@
 /****************************************************************************
  * Includes
  ****************************************************************************/
+#include "ethosu_core_interface.h"
 
 #include <linux/types.h>
 #include <linux/mailbox_client.h>
@@ -87,11 +88,30 @@ int ethosu_mailbox_read(struct ethosu_mailbox *mbox,
 			size_t length);
 
 /**
+ * ethosu_mailbox_reset() - Reset to end of queue
+ */
+void ethosu_mailbox_reset(struct ethosu_mailbox *mbox);
+
+/**
  * ethosu_mailbox_ping() - Send ping message
  *
  * Return: 0 on success, else error code.
  */
 int ethosu_mailbox_ping(struct ethosu_mailbox *mbox);
+
+/**
+ * ethosu_mailbox_pong() - Send pong response
+ *
+ * Return: 0 on success, else error code.
+ */
+int ethosu_mailbox_pong(struct ethosu_mailbox *mbox);
+
+/**
+ * ethosu_mailbox_version_response - Send version request
+ *
+ * Return: 0 on succes, else error code
+ */
+int ethosu_mailbox_version_request(struct ethosu_mailbox *mbox);
 
 /**
  * ethosu_mailbox_inference() - Send inference
