@@ -1,13 +1,8 @@
-# Linux driver stack for Arm Ethos-U
+# Linux driver stack for Arm(R) Ethos(TM)-U
 
-The Linux driver stack for Arm Ethos-U provides an example of how a rich
-operating system like Linux can dispatch inferences to an Arm Cortex-M
+The Linux driver stack for Arm(R) Ethos(TM)-U provides an example of how a rich
+operating system like Linux can dispatch inferences to an Arm Cortex(R)-M
 subsystem, consisting of an Arm Cortex-M of choice and an Arm Ethos-U NPU.
-
-## Licenses
-
-The kernel drivers are provided under a GPL v2 license. All other software
-componantes are provided under an Apache 2.0 license.
 
 ## Building
 
@@ -70,3 +65,49 @@ The kernel driver uses the mailbox APIs as a doorbell mechanism.
   };
 };
 ```
+
+# Licenses
+
+The kernel drivers are provided under a GPL v2 license. All other software
+componantes are provided under an Apache 2.0 license.
+
+Please see [LICENSE-APACHE-2.0.txt](LICENSE-APACHE-2.0.txt) and
+[LICENSE-GPL-2.0.txt](LICENSE-GPL-2.0.txt) for more information.
+
+# Contributions
+
+The Arm Ethos-U project welcomes contributions under the Apache-2.0 license.
+
+Before we can accept your contribution, you need to certify its origin and give
+us your permission. For this process we use the Developer Certificate of Origin
+(DCO) V1.1 (https://developercertificate.org).
+
+To indicate that you agree to the terms of the DCO, you "sign off" your
+contribution by adding a line with your name and e-mail address to every git
+commit message. You must use your real name, no pseudonyms or anonymous
+contributions are accepted. If there are more than one contributor, everyone
+adds their name and e-mail to the commit message.
+
+```
+Author: John Doe \<john.doe@example.org\>
+Date:   Mon Feb 29 12:12:12 2016 +0000
+
+Title of the commit
+
+Short description of the change.
+   
+Signed-off-by: John Doe john.doe@example.org
+Signed-off-by: Foo Bar foo.bar@example.org
+```
+
+The contributions will be code reviewed by Arm before they can be accepted into
+the repository.
+
+# Security
+
+Please see [Security](SECURITY.md).
+
+# Trademark notice
+
+Arm, Cortex and Ethos are registered trademarks of Arm Limited (or its
+subsidiaries) in the US and/or elsewhere.
