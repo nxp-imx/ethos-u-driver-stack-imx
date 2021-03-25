@@ -64,6 +64,8 @@ size_t getTensorTypeSize(const enum tflite::TensorType type) {
         return 1;
     case tflite::TensorType::TensorType_INT16:
         return 2;
+    case tflite::TensorType::TensorType_FLOAT32:
+        return 4;
     default:
         throw EthosU::Exception("Unsupported tensor type");
     }
