@@ -19,3 +19,4 @@
 #
 
 obj-$(CONFIG_ETHOSU_RESET) += ethosu_bridge_reset.o
+obj-$(CONFIG_ETHOSU_REMOTEPROC) += ethosu_remoteproc.o

@@ -27,5 +27,20 @@
             reg = <0x0 0x500f0000 0x0 0x00001000>;
     };
 
+    /* configuration for the remote proc driver. */
+    ethosu_cpu {
+           #address-cells = <2>;
+           #size-cells = <2>;
+           range;
+           compatible ="arm,ethosu-sgm775-rproc";
+           reg = <0x0 0x50100000 0x0 0x00100000>,
+                 <0x0 0x84000000 0x0 0x00100000>;
+           reg-names = "rom", "shared";
+           resets = <&ethosu_reset 0>;
+           #ethosu,rproc-address-cells = <1>;
+           ethosu,rproc-ranges = <0x0 0x50100000 0x00000000 0x0 0x00100000
+                                  0x0 0x84000000 0x64000000 0x0 0x00100000>;
+           ethosu,rproc-names = "rom", "shared";
+    };
 };
 

@@ -50,6 +50,13 @@ The kernel driver uses the mailbox APIs as a doorbell mechanism.
     clock-names = "apb_pclk";
   };
 
+  ethosu_mcu {
+    compatible ="arm, ethosu-sgm775-rproc";
+    reg = <0x0 0x500f0000 0x0 0x1000>,
+          <0x0 0x50100000 0x0 0x100000>;
+    reg-names = "bridge", "firmware";
+  };
+
   ethosu {
     #address-cells = <2>;
     #size-cells = <2>;
@@ -62,6 +69,7 @@ The kernel driver uses the mailbox APIs as a doorbell mechanism.
     dma-ranges = <0 0x60000000 0 0x80000000 0 0x20000000>;
     mboxes= <&ethosu_mailbox 0>, <&ethosu_mailbox 0>;
     mbox-names = "tx", "rx";
+    ethosu-rproc = <&ethosu_mcu>;
   };
 };
 ```

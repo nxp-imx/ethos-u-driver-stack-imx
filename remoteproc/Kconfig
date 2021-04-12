@@ -26,3 +26,11 @@ config ARM_ETHOSU_SGM775_RESET
           reference module for controlling the reset of Cortex-M CPU on
           the Ethos-U subsystem.
 
+config ARM_ETHOSU_RPROC
+	tristate "Arm MHUv2 Mailbox"
+	depends on REMOTEPROC
+        help
+          Say Y here if you want to build the Arm Ethos-U remoteproc
+          reference module for controlling the Cortex-M CPU on the Ethos-U
+          subsystem.
+

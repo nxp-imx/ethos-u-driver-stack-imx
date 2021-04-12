@@ -40,7 +40,7 @@ list(TRANSFORM OBJ PREPEND ${CMAKE_CURRENT_SOURCE_DIR}/)
 add_custom_target(ethosu-remoteproc-module ALL
     COMMAND ${CMAKE_MAKE_PROGRAM} -C ${KDIR}
     EXTRA_CFLAGS=-I${KDIR}/../../../drivers/remoteproc M=${CMAKE_CURRENT_SOURCE_DIR}
-                  CONFIG_ETHOSU_RESET=m
+                  CONFIG_ETHOSU_RESET=m CONFIG_ETHOSU_REMOTEPROC=m
                   CROSS_COMPILE=aarch64-linux-gnu- ARCH=arm64 modules
                   BYPRODUCTS
                   ${CMAKE_CURRENT_SOURCE_DIR}/ethosu_remoteproc.ko
