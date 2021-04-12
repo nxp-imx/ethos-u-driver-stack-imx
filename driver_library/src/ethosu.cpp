@@ -50,6 +50,10 @@ int eioctl(int fd, unsigned long cmd, void *data = nullptr) {
 size_t getShapeSize(const flatbuffers::Vector<int32_t> *shape) {
     size_t size = 1;
 
+    if (shape == nullptr) {
+        throw EthosU::Exception("getShapeSize(): nullptr arg");
+    }
+
     for (auto it = shape->begin(); it != shape->end(); ++it) {
         size *= *it;
     }
@@ -73,6 +77,10 @@ size_t getTensorTypeSize(const enum tflite::TensorType type) {
 
 vector<size_t> getSubGraphDims(const tflite::SubGraph *subgraph, const flatbuffers::Vector<int32_t> *tensorMap) {
     vector<size_t> dims;
+
+    if (subgraph == nullptr || tensorMap == nullptr) {
+        throw EthosU::Exception("getSubGraphDims(): nullptr arg(s)");
+    }
 
     for (auto index = tensorMap->begin(); index != tensorMap->end(); ++index) {
         auto tensor = subgraph->tensors()->Get(*index);
@@ -189,6 +197,10 @@ Network::Network(Device &device, shared_ptr<Buffer> &buffer) : fd(-1), buffer(bu
 
     // Create model handle
     const tflite::Model *model = tflite::GetModel(reinterpret_cast<void *>(buffer->data()));
+
+    if (model->subgraphs() == nullptr) {
+        throw EthosU::Exception("Failed to get subgraphs: nullptr");
+    }
 
     // Get input dimensions for first subgraph
     auto *subgraph = *model->subgraphs()->begin();
