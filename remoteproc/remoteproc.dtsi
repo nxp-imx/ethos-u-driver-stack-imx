@@ -1,0 +1,31 @@
+/*
+ * Copyright (c) 2021 Arm Limited. All rights reserved.
+ *
+ * This program is free software and is provided to you under the terms of the
+ * GNU General Public License version 2 as published by the Free Software
+ * Foundation, and any use by you of this program is subject to the terms
+ * of such GNU licence.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
+ *
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
+
+
+/{
+    /* Example for using reset driver dts entries for Ethos-U */
+    ethosu_reset: sgm775_ethosu_bridge@0x500f0000 {
+            compatible ="arm,ethosu-bridge-reset";
+            #reset-cells = <1>;
+            reg = <0x0 0x500f0000 0x0 0x00001000>;
+    };
+
+};
+

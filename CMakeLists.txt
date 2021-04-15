@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020 Arm Limited. All rights reserved.
+# Copyright (c) 2020-2021 Arm Limited. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -24,6 +24,7 @@ project("linux_driver_stack" VERSION 1.0)
 # Default options
 option(BUILD_KERNEL "Build the kernel driver" ON)
 option(BUILD_MAILBOX "Build the MHU mailbox kernel module" ON)
+option(BUILD_REMOTEPROC "Build the remoteproc kernel module" ON)
 
 # Add rpath to library directory
 set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
@@ -38,6 +39,10 @@ endif()
 
 if (BUILD_MAILBOX)
     add_subdirectory(mailbox)
+endif()
+
+if (BUILD_REMOTEPROC)
+add_subdirectory(remoteproc)
 endif()
 
 # Build flatbuffers
