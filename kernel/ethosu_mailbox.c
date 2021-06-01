@@ -213,6 +213,18 @@ int ethosu_mailbox_version_request(struct ethosu_mailbox *mbox)
 				      0);
 }
 
+int ethosu_mailbox_capabilities_request(struct ethosu_mailbox *mbox,
+					void *user_arg)
+{
+	struct ethosu_core_capabilities_req req = {
+		.user_arg = (ptrdiff_t)user_arg
+	};
+
+	return ethosu_queue_write_msg(mbox, ETHOSU_CORE_MSG_CAPABILITIES_REQ,
+				      &req,
+				      sizeof(req));
+}
+
 int ethosu_mailbox_inference(struct ethosu_mailbox *mbox,
 			     void *user_arg,
 			     uint32_t ifm_count,

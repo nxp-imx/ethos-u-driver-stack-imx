@@ -44,6 +44,7 @@ namespace EthosU {
 
 #define ETHOSU_IOCTL_PING               ETHOSU_IO(0x00)
 #define ETHOSU_IOCTL_VERSION_REQ        ETHOSU_IO(0x01)
+#define ETHOSU_IOCTL_CAPABILITIES_REQ   ETHOSU_IO(0x02)
 #define ETHOSU_IOCTL_BUFFER_CREATE      ETHOSU_IOR(0x10, \
 						   struct ethosu_uapi_buffer_create)
 #define ETHOSU_IOCTL_BUFFER_SET         ETHOSU_IOR(0x11, \
@@ -122,6 +123,56 @@ struct ethosu_uapi_pmu_config {
 struct ethosu_uapi_pmu_counts {
 	__u32 events[ETHOSU_PMU_EVENT_MAX];
 	__u64 cycle_count;
+};
+
+/**
+ * struct ethosu_uapi_device_hw_id - Device hardware identification
+ * @version_status:            Version status
+ * @version_minor:             Version minor
+ * @version_major:             Version major
+ * @product_major:             Product major
+ * @arch_patch_rev:            Architecture version patch
+ * @arch_minor_rev:            Architecture version minor
+ * @arch_major_rev:            Architecture version major
+ */
+struct ethosu_uapi_device_hw_id {
+	__u32 version_status;
+	__u32 version_minor;
+	__u32 version_major;
+	__u32 product_major;
+	__u32 arch_patch_rev;
+	__u32 arch_minor_rev;
+	__u32 arch_major_rev;
+};
+
+/**
+ * struct ethosu_uapi_device_hw_cfg - Device hardware configuration
+ * @macs_per_cc:               MACs per clock cycle
+ * @cmd_stream_version:        NPU command stream version
+ * @shram_size:                SHRAM size
+ * @custom_dma:                Custom DMA enabled
+ */
+struct ethosu_uapi_device_hw_cfg {
+	__u32 macs_per_cc;
+	__u32 cmd_stream_version;
+	__u32 shram_size;
+	__u32 custom_dma;
+};
+
+/**
+ * struct ethosu_uapi_capabilities - Device capabilities
+ * @hw_id:                     Hardware identification
+ * @hw_cfg:                    Hardware configuration
+ * @driver_patch_rev:          Driver version patch
+ * @driver_minor_rev:          Driver version minor
+ * @driver_major_rev:          Driver version major
+ */
+struct ethosu_uapi_device_capabilities {
+	struct ethosu_uapi_device_hw_id  hw_id;
+	struct ethosu_uapi_device_hw_cfg hw_cfg;
+	__u32                            driver_patch_rev;
+	__u32                            driver_minor_rev;
+	__u32                            driver_major_rev;
 };
 
 /**

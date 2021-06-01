@@ -114,6 +114,14 @@ int ethosu_mailbox_pong(struct ethosu_mailbox *mbox);
 int ethosu_mailbox_version_request(struct ethosu_mailbox *mbox);
 
 /**
+ * ethosu_mailbox_capabilities_request() - Send capabilities request
+ *
+ * Return: 0 on success, else error code.
+ */
+int ethosu_mailbox_capabilities_request(struct ethosu_mailbox *mbox,
+					void *user_arg);
+
+/**
  * ethosu_mailbox_inference() - Send inference
  *
  * Return: 0 on success, else error code.

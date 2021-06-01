@@ -25,6 +25,7 @@
  * Includes
  ****************************************************************************/
 
+#include "uapi/ethosu.h"
 #include "ethosu_mailbox.h"
 
 #include <linux/device.h>
@@ -32,6 +33,7 @@
 #include <linux/io.h>
 #include <linux/mutex.h>
 #include <linux/workqueue.h>
+#include <linux/completion.h>
 
 /****************************************************************************
  * Types
@@ -47,7 +49,19 @@ struct ethosu_device {
 	dev_t                 devt;
 	struct mutex          mutex;
 	struct ethosu_mailbox mailbox;
+	struct list_head      capabilities_list;
 	struct list_head      inference_list;
+};
+
+/**
+ * struct ethosu_capabilities - Capabilities internal struct
+ */
+struct ethosu_capabilities {
+	struct ethosu_device                   *edev;
+	struct completion                      done;
+	struct kref                            refcount;
+	struct ethosu_uapi_device_capabilities *capabilities;
+	struct list_head                       list;
 };
 
 /****************************************************************************

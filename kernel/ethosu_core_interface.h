@@ -55,6 +55,8 @@ enum ethosu_core_msg_type {
 	ETHOSU_CORE_MSG_INFERENCE_RSP,
 	ETHOSU_CORE_MSG_VERSION_REQ,
 	ETHOSU_CORE_MSG_VERSION_RSP,
+	ETHOSU_CORE_MSG_CAPABILITIES_REQ,
+	ETHOSU_CORE_MSG_CAPABILITIES_RSP,
 	ETHOSU_CORE_MSG_MAX
 };
 
@@ -126,6 +128,34 @@ struct ethosu_core_msg_version {
 	uint8_t minor;
 	uint8_t patch;
 	uint8_t _reserved;
+};
+
+/**
+ * struct ethosu_core_capabilities_req - Message capabilities request
+ */
+struct ethosu_core_capabilities_req {
+	uint64_t user_arg;
+};
+
+/**
+ * struct ethosu_core_capabilities_rsp - Message capabilities response
+ */
+struct ethosu_core_msg_capabilities_rsp {
+	uint64_t user_arg;
+	uint32_t version_status;
+	uint32_t version_minor;
+	uint32_t version_major;
+	uint32_t product_major;
+	uint32_t arch_patch_rev;
+	uint32_t arch_minor_rev;
+	uint32_t arch_major_rev;
+	uint32_t driver_patch_rev;
+	uint32_t driver_minor_rev;
+	uint32_t driver_major_rev;
+	uint32_t macs_per_cc;
+	uint32_t cmd_stream_version;
+	uint32_t shram_size;
+	uint32_t custom_dma;
 };
 
 /**

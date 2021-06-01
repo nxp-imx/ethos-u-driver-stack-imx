@@ -112,6 +112,43 @@ const char *Exception::what() const throw() {
 }
 
 /****************************************************************************
+ * Semantic Version
+ ****************************************************************************/
+
+bool SemanticVersion::operator==(const SemanticVersion &other) {
+    return other.major == major && other.minor == minor && other.patch == patch;
+}
+
+bool SemanticVersion::operator<(const SemanticVersion &other) {
+    if (other.major > major)
+        return true;
+    if (other.minor > minor)
+        return true;
+    return other.patch > patch;
+}
+
+bool SemanticVersion::operator<=(const SemanticVersion &other) {
+    return *this < other || *this == other;
+}
+
+bool SemanticVersion::operator!=(const SemanticVersion &other) {
+    return !(*this == other);
+}
+
+bool SemanticVersion::operator>(const SemanticVersion &other) {
+    return !(*this <= other);
+}
+
+bool SemanticVersion::operator>=(const SemanticVersion &other) {
+    return !(*this < other);
+}
+
+ostream &operator<<(ostream &out, const SemanticVersion &v) {
+    return out << "{ major=" << unsigned(v.major) << ", minor=" << unsigned(v.minor) << ", patch=" << unsigned(v.patch)
+               << " }";
+}
+
+/****************************************************************************
  * Device
  ****************************************************************************/
 
@@ -128,6 +165,23 @@ Device::~Device() {
 
 int Device::ioctl(unsigned long cmd, void *data) {
     return eioctl(fd, cmd, data);
+}
+
+Capabilities Device::capabilities() {
+    ethosu_uapi_device_capabilities uapi;
+    (void)eioctl(fd, ETHOSU_IOCTL_CAPABILITIES_REQ, static_cast<void *>(&uapi));
+
+    Capabilities capabilities(
+        HardwareId(uapi.hw_id.version_status,
+                   SemanticVersion(uapi.hw_id.version_major, uapi.hw_id.version_minor),
+                   SemanticVersion(uapi.hw_id.product_major),
+                   SemanticVersion(uapi.hw_id.arch_major_rev, uapi.hw_id.arch_minor_rev, uapi.hw_id.arch_patch_rev)),
+        HardwareConfiguration(uapi.hw_cfg.macs_per_cc,
+                              uapi.hw_cfg.cmd_stream_version,
+                              uapi.hw_cfg.shram_size,
+                              bool(uapi.hw_cfg.custom_dma)),
+        SemanticVersion(uapi.driver_major_rev, uapi.driver_minor_rev, uapi.driver_patch_rev));
+    return capabilities;
 }
 
 /****************************************************************************

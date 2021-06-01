@@ -23,6 +23,7 @@
 #include <iomanip>
 #include <iostream>
 #include <list>
+#include <stdio.h>
 #include <string>
 #include <unistd.h>
 
@@ -208,6 +209,20 @@ int main(int argc, char *argv[]) {
 
         cout << "Send version request" << endl;
         device.ioctl(ETHOSU_IOCTL_VERSION_REQ);
+
+        cout << "Send capabilities request" << endl;
+        Capabilities capabilities = device.capabilities();
+
+        cout << "Capabilities:" << endl
+             << "\tversion_status:" << unsigned(capabilities.hwId.versionStatus) << endl
+             << "\tversion:" << capabilities.hwId.version << endl
+             << "\tproduct:" << capabilities.hwId.product << endl
+             << "\tarchitecture:" << capabilities.hwId.architecture << endl
+             << "\tdriver:" << capabilities.driver << endl
+             << "\tmacs_per_cc:" << unsigned(capabilities.hwCfg.macsPerClockCycle) << endl
+             << "\tcmd_stream_version:" << unsigned(capabilities.hwCfg.cmdStreamVersion) << endl
+             << "\tshram_size:" << unsigned(capabilities.hwCfg.shramSize) << endl
+             << "\tcustom_dma:" << std::boolalpha << capabilities.hwCfg.customDma << endl;
 
         /* Create network */
         cout << "Create network" << endl;
