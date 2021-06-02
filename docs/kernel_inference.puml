@@ -1,0 +1,79 @@
+@startuml
+
+skinparam backgroundColor #FEFEFE
+
+box "Application" #0091BD
+participant "main()" as main
+end box
+
+box "Driver library" #00C1DE
+participant "Device" as ddev
+participant "Buffer" as dbuf
+participant "Network" as dnet
+participant "Inference" as dinf
+end box
+
+box "Kernel driver" #7D868C
+participant "Device" as kdev
+participant "Buffer" as kbuf
+participant "Network" as knet
+participant "Inference" as kinf
+participant "Mailbox" as kmbox
+end box
+
+box "Cortex-M application" #E5ECEB
+participant "Message process" as cmsg
+end box
+
+activate main
+
+note over main
+    Create device
+    Create network
+    Allocate and fill IFM buffers
+    Allocate OFM buffers
+end note
+
+main -> dinf++: Inference(network, ifm, ofm)
+    dinf -> knet++: ioctl(INFERENCE_CREATE, network, ifm, ofm)
+        note over kinf
+            Create inference
+        end note
+
+        knet -> kinf++: create(network, ifm, ofm)
+            kinf -> kmbox++: inference()
+                note over kmbox
+                    Write inference request to queue in shared memory
+                    Send IRQ
+                end note
+
+                kmbox -> cmsg: INFERENCE_REQUEST
+            return
+        return file descriptor
+    return file descriptor
+return
+
+main -> dinf++: wait()
+    dinf -> kinf++: poll()
+
+    cmsg -> kdev++: INFERENCE_RESPONSE
+        note over kdev
+            Inference response is handled by the IRQ bottom handler thread
+            Message is read from queue in shared memory
+        end note
+
+        kdev -> kmbox++: read()
+        return
+
+        note over kinf
+            Inference response handler unlocks the polling thread
+        end note
+
+        kdev -> kinf++: inference_response()
+        return
+    deactivate cmsg
+
+    return
+return
+
+@enduml

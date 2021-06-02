@@ -1,0 +1,41 @@
+@startuml
+
+skinparam backgroundColor #FEFEFE
+
+box "Application" #0091BD
+participant "main()" as main
+end box
+
+box "Driver library" #00C1DE
+participant "Device" as ddev
+participant "Buffer" as dbuf
+participant "Network" as dnet
+participant "Inference" as dinf
+end box
+
+box "Kernel driver" #7D868C
+participant "Device" as kdev
+participant "Buffer" as kbuf
+participant "Network" as knet
+participant "Inference" as kinf
+end box
+
+activate main
+
+note over main
+    Create device
+    Allocate and fill network buffer
+end note
+
+main -> dnet++: Network(device, buffer)
+    dnet -> kdev++: ioctl(NETWORK_CREATE, buffer)
+        note over knet
+            Create network and return file descriptor
+        end note
+
+        kdev -> knet++: create(buffer)
+        return file descriptor
+    return file descriptor
+return
+
+@enduml

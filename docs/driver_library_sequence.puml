@@ -1,0 +1,79 @@
+@startuml
+
+skinparam backgroundColor #FEFEFE
+
+box "Application" #0091BD
+participant "main()" as main
+end box
+
+box "Driver library" #00C1DE
+participant "Device" as ddev
+participant "Buffer" as dbuf
+participant "Network" as dnet
+participant "Inference" as dinf
+end box
+
+box "Kernel driver" #7D868C
+participant "Device" as kdev
+participant "Buffer" as kbuf
+participant "Network" as knet
+participant "Inference" as kinf
+end box
+
+note over ddev
+    Create device
+end note
+activate main
+main -> ddev++: Device()
+    ddev -> kdev++: open(<device node>)
+    return file descriptor
+return
+
+note over dnet
+    Allocate and fill network buffer
+end note
+
+main -> dbuf++: Buffer(device)
+    dbuf -> kbuf++: ioctl(BUFFER_CREATE)
+    return file descriptor
+return
+
+note over dnet
+    Create network, parse network model
+end note
+
+main -> dnet++: Network(device, buffer)
+    dnet -> knet++: ioctl(NETWORK_CREATE)
+    return file descriptor
+
+    dnet -> dnet: Parse network model
+return
+
+loop Allocate and fill IFM buffers
+    main -> dbuf++: Buffer(device)
+        dbuf -> kbuf++: ioctl(BUFFER_CREATE)
+        return file descriptor
+    return
+end loop
+
+loop Allocate OFM buffers
+    main -> dbuf++: Buffer(device)
+        dbuf -> kbuf++: ioctl(BUFFER_CREATE)
+        return file descriptor
+    return
+end loop
+
+note over dinf
+    Create and run inference
+end note
+main -> dinf++: Inference(network, ifm, ofm)
+    dinf -> kinf++: ioctl(INFERENCE_CREATE)
+    return file descriptor
+return
+
+main -> dinf++: wait(file descriptor)
+    dinf -> kinf++: poll(file descriptor)
+    return
+return
+
+@enduml

@@ -66,6 +66,114 @@ The kernel driver uses the mailbox APIs as a doorbell mechanism.
 };
 ```
 
+# Documentation
+
+## Driver library
+
+The purpose of the driver library is to provide user friendly C++ APIs for
+dispatching inferences to the Ethos-U kernel driver.
+
+As the component diagram below illustrates the network is separated from the
+inference, allowing multiple inferences to share the same network. The buffer
+class is used to store any data.
+
+![Driver library](docs/driver_library_component.svg "Driver library component diagram")
+
+The [inference runner](utils/inference_runner/inference_runner.cpp) demonstrates
+how to dispatch inferences to the Ethos-U kernel driver. All the steps described
+in the sequence diagram below are executed by the `inference_runner`
+application.
+
+The `Device` class opens a file descriptor to the device node `/dev/ethosu<nr>`.
+This file descriptor is used to issue IOCTL request to kernel space to create
+buffers and networks.
+
+The `Network` class uses the `Device` object to create a new network object. The
+network model is stored in a `Buffer` that the network parses to discover the
+dimensions of the network model.
+
+The `Inference` class uses the `Network` object to create an inference. The
+array of IFM `Buffers` need to be populated with data before the inference
+object is created.
+
+The inference object must poll the file descriptor waiting for the inference to
+complete.
+
+![Driver library](docs/driver_library_sequence.svg "Driver library sequence diagram")
+
+## Ethos-U core interface
+
+The task of the Ethos-U kernel driver is to present a Userspace API (UAPI) to
+user space, and to communicate with the Cortex-M in the Ethos-U subsystem.
+
+The communication with the Ethos-U subsystem is based on message passing in
+shared memory, and the Linux kernel mailbox APIs for triggering IRQs on the
+remote CPU.
+
+The address of the message queues is hard coded in the Cortex-M application, and
+configured in the DTB for the kernel driver.
+
+When the kernel driver allocates dynamic memory for the Ethos-U subsystem it
+must be able to map a physical address to a bus address. The DTB contains a
+`dma-ranges` which define how to remap physical addresses to the Cortex-M
+address space.
+
+Triggering IRQs on a remote CPU requires external hardware support, for example
+the Arm MHU.
+
+### Device and buffer
+
+The device driver creates a device node at `/dev/ethosu<nr>` that a user space
+application can open and issues IOCTL requests to. This is how buffers and
+networks are created.
+
+Creating a new buffer returns another file descriptor that can be memory mapped
+for reading and/or writing.
+
+![Create buffer](docs/kernel_buffer.svg "Create buffer")
+
+### Network
+
+Creating a network assumes that the device node has already been opened, and
+that a buffer has been allocated and populated with the network model.
+
+A new network is created by issuing an IOCTL command on the device node file
+descriptor. A file descriptor to a buffer - containing the network model - is
+passed in the IOCTL data. The network class increases the reference count on the
+buffer, preventing the buffer from being freed before the network object has
+been destructed.
+
+![Create network](docs/kernel_network.svg "Create network")
+
+### Inference
+
+Creating an inference assumes that a network has already been created, IFM
+buffers have been allocated and populated with data, and OFM buffers have been
+allocated.
+
+A new inference is created by issuing an IOCTL command to the network file
+descriptor. An array of IFM and OFM buffers are passed in the IOCTL data, which
+reference counts will be increased.
+
+Immediately after the inference object has been created an *inference request*
+message is sent to the Cortex-M application. The inference request message is
+written to a ring buffer in shared memory, cache maintenance is executed if
+necessary, and an IRQ is raised using the Linux mailbox APIs.
+
+On success, a valid file handle is returned to user space. The file handle is
+used to wait for the inference to complete.
+
+Once the inference has been calculated on the Ethos-U subsystem, the message
+process writes an *inference response* message into the response queue in shared
+memory, executes cache maintenance if needed, and raises an IRQ.
+
+On the Linux side the IRQ is handled and cleared. The IRQ bottom handler is a
+separate kernel thread responsible for reading the message queue. When the
+inference response message is received it updates the status of the inference
+and unblocks any waiting user space processes.
+
+![Run inference](docs/kernel_inference.svg "Run inference")
+
 # Licenses
 
 The kernel drivers are provided under a GPL v2 license. All other software
@@ -95,7 +203,7 @@ Date:   Mon Feb 29 12:12:12 2016 +0000
 Title of the commit
 
 Short description of the change.
-   
+
 Signed-off-by: John Doe john.doe@example.org
 Signed-off-by: Foo Bar foo.bar@example.org
 ```

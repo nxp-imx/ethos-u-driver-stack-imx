@@ -1,0 +1,52 @@
+@startuml
+
+skinparam backgroundColor #FEFEFE
+
+box "Application" #0091BD
+participant "main()" as main
+end box
+
+box "Driver library" #00C1DE
+participant "Device" as ddev
+participant "Buffer" as dbuf
+participant "Network" as dnet
+participant "Inference" as dinf
+end box
+
+box "Kernel driver" #7D868C
+participant "Device" as kdev
+participant "Buffer" as kbuf
+participant "Network" as knet
+participant "Inference" as kinf
+end box
+
+activate main
+
+main -> ddev++: Device()
+    note over kdev
+        Open device node
+    end note
+
+    ddev -> kdev++: open(<device node>)
+    return file descriptor
+return
+
+main -> dbuf++: Buffer(device)
+    dbuf -> kdev++: ioctl(BUFFER_CREATE)
+        note over kbuf
+            Create buffer and return file descriptor
+        end note
+
+        kdev -> kbuf++: create()
+        return file descriptor
+    return file descriptor
+
+    note over kbuf
+        Memory map buffer
+    end note
+
+    dbuf -> kbuf++: mmap(file descriptor)
+    return
+return
+
+@enduml
