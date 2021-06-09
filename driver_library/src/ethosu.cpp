@@ -33,8 +33,8 @@
 
 using namespace std;
 
-namespace {
-int eioctl(int fd, unsigned long cmd, void *data = nullptr) {
+namespace EthosU {
+__attribute__((weak)) int eioctl(int fd, unsigned long cmd, void *data = nullptr) {
     int ret = ::ioctl(fd, cmd, data);
     if (ret < 0) {
         throw EthosU::Exception("IOCTL failed");
@@ -43,10 +43,37 @@ int eioctl(int fd, unsigned long cmd, void *data = nullptr) {
     return ret;
 }
 
+__attribute__((weak)) int eopen(const char *pathname, int flags) {
+    int fd = ::open(pathname, flags);
+
+    if (fd < 0) {
+        throw Exception("Failed to open device");
+    }
+
+    return fd;
+}
+
+__attribute__((weak)) int epoll(struct pollfd *fds, nfds_t nfds, int timeout) {
+    return ::poll(fds, nfds, timeout);
+}
+
+__attribute__((weak)) int eclose(int fd) {
+    return ::close(fd);
+}
+__attribute((weak)) void *emmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
+    return ::mmap(addr, length, prot, flags, fd, offset);
+}
+
+__attribute__((weak)) int emunmap(void *addr, size_t length) {
+    return ::munmap(addr, length);
+}
+
+} // namespace EthosU
+
 /****************************************************************************
  * TFL micro helpers
  ****************************************************************************/
-
+namespace {
 size_t getShapeSize(const flatbuffers::Vector<int32_t> *shape) {
     size_t size = 1;
 
@@ -151,16 +178,12 @@ ostream &operator<<(ostream &out, const SemanticVersion &v) {
 /****************************************************************************
  * Device
  ****************************************************************************/
-
 Device::Device(const char *device) {
-    fd = open(device, O_RDWR | O_NONBLOCK);
-    if (fd < 0) {
-        throw Exception("Failed to open device");
-    }
+    fd = eopen(device, O_RDWR | O_NONBLOCK);
 }
 
 Device::~Device() {
-    close(fd);
+    eclose(fd);
 }
 
 int Device::ioctl(unsigned long cmd, void *data) {
@@ -189,7 +212,7 @@ Buffer::Buffer(Device &device, const size_t capacity) : fd(-1), dataPtr(nullptr)
     ethosu_uapi_buffer_create uapi = {static_cast<uint32_t>(dataCapacity)};
     fd                             = device.ioctl(ETHOSU_IOCTL_BUFFER_CREATE, static_cast<void *>(&uapi));
 
-    void *d = ::mmap(nullptr, dataCapacity, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    void *d = emmap(nullptr, dataCapacity, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (d == MAP_FAILED) {
         throw Exception("MMap failed");
     }
@@ -198,7 +221,8 @@ Buffer::Buffer(Device &device, const size_t capacity) : fd(-1), dataPtr(nullptr)
 }
 
 Buffer::~Buffer() {
-    close(fd);
+    emunmap(dataPtr, dataCapacity);
+    eclose(fd);
 }
 
 size_t Buffer::capacity() const {
@@ -263,7 +287,7 @@ Network::Network(Device &device, shared_ptr<Buffer> &buffer) : fd(-1), buffer(bu
 }
 
 Network::~Network() {
-    close(fd);
+    eclose(fd);
 }
 
 int Network::ioctl(unsigned long cmd, void *data) {
@@ -307,7 +331,7 @@ size_t Network::getOfmSize() const {
  ****************************************************************************/
 
 Inference::~Inference() {
-    close(fd);
+    eclose(fd);
 }
 
 void Inference::create(std::vector<uint32_t> &counterConfigs, bool cycleCounterEnable = false) {
@@ -359,7 +383,7 @@ int Inference::wait(int timeoutSec) {
     pfd.events  = POLLIN | POLLERR;
     pfd.revents = 0;
 
-    int ret = ::poll(&pfd, 1, timeoutSec * 1000);
+    int ret = epoll(&pfd, 1, timeoutSec * 1000);
 
     cout << "Poll. ret=" << ret << ", revents=" << pfd.revents << endl;
 
