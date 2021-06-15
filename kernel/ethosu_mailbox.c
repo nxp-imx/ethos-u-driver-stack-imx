@@ -128,7 +128,9 @@ static int ethosu_queue_read(struct ethosu_mailbox *mbox,
 	uint32_t rpos = queue->header.read;
 	size_t queue_avail = ethosu_queue_available(queue);
 
-	if (queue_avail == 0)
+	if (length == 0)
+		return 0;
+	else if (queue_avail == 0)
 		return -ENOMSG;
 	else if (length > queue_avail)
 		return -EBADMSG;
