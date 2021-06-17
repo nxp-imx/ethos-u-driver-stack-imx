@@ -149,13 +149,11 @@ struct ethosu_uapi_device_hw_id {
  * struct ethosu_uapi_device_hw_cfg - Device hardware configuration
  * @macs_per_cc:               MACs per clock cycle
  * @cmd_stream_version:        NPU command stream version
- * @shram_size:                SHRAM size
  * @custom_dma:                Custom DMA enabled
  */
 struct ethosu_uapi_device_hw_cfg {
 	__u32 macs_per_cc;
 	__u32 cmd_stream_version;
-	__u32 shram_size;
 	__u32 custom_dma;
 };
 

@@ -113,7 +113,6 @@ static int ethosu_capability_rsp(struct ethosu_device *edev,
 	capabilities->driver_major_rev = msg->driver_major_rev;
 	capabilities->hw_cfg.macs_per_cc = msg->macs_per_cc;
 	capabilities->hw_cfg.cmd_stream_version = msg->cmd_stream_version;
-	capabilities->hw_cfg.shram_size = msg->shram_size;
 	capabilities->hw_cfg.custom_dma = msg->custom_dma;
 
 	complete(&cap->done);
@@ -212,7 +211,7 @@ static int ethosu_handle_msg(struct ethosu_device *edev)
 		}
 
 		dev_info(edev->dev,
-			 "Msg: Capabilities response ua%llx vs%hhu v%hhu.%hhu p%hhu av%hhu.%hhu.%hhu dv%hhu.%hhu.%hhu mcc%hhu csv%hhu ss%hhu cd%hhu\n",
+			 "Msg: Capabilities response ua%llx vs%hhu v%hhu.%hhu p%hhu av%hhu.%hhu.%hhu dv%hhu.%hhu.%hhu mcc%hhu csv%hhu cd%hhu\n",
 			 data.capabilities.user_arg,
 			 data.capabilities.version_status,
 			 data.capabilities.version_major,
@@ -226,7 +225,6 @@ static int ethosu_handle_msg(struct ethosu_device *edev)
 			 data.capabilities.driver_patch_rev,
 			 data.capabilities.macs_per_cc,
 			 data.capabilities.cmd_stream_version,
-			 data.capabilities.shram_size,
 			 data.capabilities.custom_dma);
 
 		ret = ethosu_capability_rsp(edev, &data.capabilities);

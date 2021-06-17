@@ -98,21 +98,15 @@ public:
  * Hardware Configuration
  * @macsPerClockCycle:         MACs per clock cycle
  * @cmdStreamVersion:          NPU command stream version
- * @shramSize:                 SHRAM size
  * @customDma:                 Custom DMA enabled
  */
 struct HardwareConfiguration {
 public:
-    HardwareConfiguration(uint32_t _macsPerClockCycle,
-                          uint32_t _cmdStreamVersion,
-                          uint32_t _shramSize,
-                          bool _customDma) :
-        macsPerClockCycle(_macsPerClockCycle),
-        cmdStreamVersion(_cmdStreamVersion), shramSize(_shramSize), customDma(_customDma) {}
+    HardwareConfiguration(uint32_t _macsPerClockCycle, uint32_t _cmdStreamVersion, bool _customDma) :
+        macsPerClockCycle(_macsPerClockCycle), cmdStreamVersion(_cmdStreamVersion), customDma(_customDma) {}
 
     uint32_t macsPerClockCycle;
     uint32_t cmdStreamVersion;
-    uint32_t shramSize;
     bool customDma;
 };
 

@@ -154,7 +154,6 @@ struct ethosu_core_msg_capabilities_rsp {
 	uint32_t driver_major_rev;
 	uint32_t macs_per_cc;
 	uint32_t cmd_stream_version;
-	uint32_t shram_size;
 	uint32_t custom_dma;
 };
 

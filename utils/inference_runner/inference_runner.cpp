@@ -224,7 +224,6 @@ int main(int argc, char *argv[]) {
              << "\tdriver:" << capabilities.driver << endl
              << "\tmacs_per_cc:" << unsigned(capabilities.hwCfg.macsPerClockCycle) << endl
              << "\tcmd_stream_version:" << unsigned(capabilities.hwCfg.cmdStreamVersion) << endl
-             << "\tshram_size:" << unsigned(capabilities.hwCfg.shramSize) << endl
              << "\tcustom_dma:" << std::boolalpha << capabilities.hwCfg.customDma << endl;
 
         /* Create network */

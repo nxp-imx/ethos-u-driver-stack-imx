@@ -176,10 +176,7 @@ Capabilities Device::capabilities() {
                    SemanticVersion(uapi.hw_id.version_major, uapi.hw_id.version_minor),
                    SemanticVersion(uapi.hw_id.product_major),
                    SemanticVersion(uapi.hw_id.arch_major_rev, uapi.hw_id.arch_minor_rev, uapi.hw_id.arch_patch_rev)),
-        HardwareConfiguration(uapi.hw_cfg.macs_per_cc,
-                              uapi.hw_cfg.cmd_stream_version,
-                              uapi.hw_cfg.shram_size,
-                              bool(uapi.hw_cfg.custom_dma)),
+        HardwareConfiguration(uapi.hw_cfg.macs_per_cc, uapi.hw_cfg.cmd_stream_version, bool(uapi.hw_cfg.custom_dma)),
         SemanticVersion(uapi.driver_major_rev, uapi.driver_minor_rev, uapi.driver_patch_rev));
     return capabilities;
 }
