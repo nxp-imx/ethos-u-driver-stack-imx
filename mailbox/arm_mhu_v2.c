@@ -18,6 +18,7 @@
 #include <linux/mailbox_controller.h>
 #include <linux/of_device.h>
 #include <linux/of_address.h>
+#include <linux/version.h>
 
 #define MHU_V2_REG_STAT_OFS             0x0
 #define MHU_V2_REG_CLR_OFS              0x8
@@ -264,6 +265,14 @@ static int mhuv2_probe(struct amba_device *adev,
 	return 0;
 }
 
+#if KERNEL_VERSION(5, 12, 0) <= LINUX_VERSION_CODE
+static void mhuv2_remove(struct amba_device *adev)
+{
+	struct arm_mhuv2 *mhuv2 = amba_get_drvdata(adev);
+
+	mbox_controller_unregister(&mhuv2->mbox);
+}
+#else
 static int mhuv2_remove(struct amba_device *adev)
 {
 	struct arm_mhuv2 *mhuv2 = amba_get_drvdata(adev);
@@ -272,6 +281,8 @@ static int mhuv2_remove(struct amba_device *adev)
 
 	return 0;
 }
+#endif
+
 
 static struct amba_id mhuv2_ids[] = {
 	{

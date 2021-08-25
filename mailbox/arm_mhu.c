@@ -31,6 +31,7 @@
 #include <linux/module.h>
 #include <linux/amba/bus.h>
 #include <linux/mailbox_controller.h>
+#include <linux/version.h>
 
 struct mhu_register_offsets {
 	uint8_t intr_stat_ofs;
@@ -223,6 +224,14 @@ static int mhu_probe(struct amba_device *adev, const struct amba_id *id)
 	return 0;
 }
 
+#if KERNEL_VERSION(5, 12, 0) <= LINUX_VERSION_CODE
+static void mhu_remove(struct amba_device *adev)
+{
+	struct arm_mhu *mhu = amba_get_drvdata(adev);
+
+	mbox_controller_unregister(&mhu->mbox);
+}
+#else
 static int mhu_remove(struct amba_device *adev)
 {
 	struct arm_mhu *mhu = amba_get_drvdata(adev);
@@ -231,6 +240,8 @@ static int mhu_remove(struct amba_device *adev)
 
 	return 0;
 }
+#endif
+
 
 static struct amba_id mhu_ids[] = {
 	{
