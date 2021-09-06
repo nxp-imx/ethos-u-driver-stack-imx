@@ -76,8 +76,9 @@ int eioctl(int, unsigned long cmd, void *) {
     }
 }
 
-int epoll(struct pollfd *, nfds_t, int timeout) {
-    sleep(timeout / 2);
+int epoll(struct pollfd *, nfds_t, int timeout_ms) {
+    int t = 1000 * timeout_ms / 2;
+    usleep(t);
     return 1;
 }
 } // namespace EthosU
