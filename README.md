@@ -182,6 +182,28 @@ and unblocks any waiting user space processes.
 
 ![Run inference](docs/kernel_inference.svg "Run inference")
 
+# Multi subsystem
+
+The Ethos-U subsystem is also referred to as the *ML Island*. A device with
+multiple subsystems is therefor called both *Multi Subsystem* and *Multi
+Island*. A subsystem may contain a single- or multiple NPUs, also referred to as
+*multi NPU subsystem*.
+
+The NPUs within a subsystem must be of identical configuration. However, NPUs
+belonging to separate subsystems may be of different architectures.
+
+For each subsystem there is a device tree entry, which will result in a separate
+device node `/dev/ethosu<nr>` being created by the Ethos-U kernel driver. For
+multi NPU subsystems there will still only be one device node per subsystem. The
+distribution of inferences within a subsystem is handled by the software running
+on the Cortex-M.
+
+Buffers used to store networks, IFMs and OFMs are allocated from the device
+node. This is because only the device node knows where to allocate the memory
+and how to translate Linux logical addresses to subsystem DMA addresses. As a
+consequence buffers, networks and inferences are bound to a device node and
+can't be easily moved.
+
 # Licenses
 
 The kernel drivers are provided under a GPL v2 license. All other software
