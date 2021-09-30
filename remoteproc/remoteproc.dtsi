@@ -32,7 +32,7 @@
            #address-cells = <2>;
            #size-cells = <2>;
            range;
-           compatible ="arm,ethosu-sgm775-rproc";
+           compatible ="arm,ethosu-rproc";
            reg = <0x0 0x50100000 0x0 0x00100000>,
                  <0x0 0x84000000 0x0 0x00100000>;
            reg-names = "rom", "shared";

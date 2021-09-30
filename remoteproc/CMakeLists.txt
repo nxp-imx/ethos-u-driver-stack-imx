@@ -36,11 +36,13 @@ file(GLOB_RECURSE OBJ RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "*.c")
 list(TRANSFORM OBJ REPLACE "^(.*)[.]c" "\\1.o")
 list(TRANSFORM OBJ PREPEND ${CMAKE_CURRENT_SOURCE_DIR}/)
 
+set(MODULES CONFIG_ARM_ETHOSU_RPROC=m CONFIG_ARM_SGM775_ETHOSU_RESET=m CONFIG_ARM_JUNO_FPGA_RESET=m)
+
 # Build the kernel module
 add_custom_target(ethosu-remoteproc-module ALL
     COMMAND ${CMAKE_MAKE_PROGRAM} -C ${KDIR}
     EXTRA_CFLAGS=-I${KDIR}/../../../drivers/remoteproc M=${CMAKE_CURRENT_SOURCE_DIR}
-                  CONFIG_ETHOSU_RESET=m CONFIG_ETHOSU_REMOTEPROC=m
+                  ${MODULES}
                   CROSS_COMPILE=aarch64-linux-gnu- ARCH=arm64 modules
                   BYPRODUCTS
                   ${CMAKE_CURRENT_SOURCE_DIR}/ethosu_remoteproc.ko
@@ -49,6 +51,6 @@ add_custom_target(ethosu-remoteproc-module ALL
                   ${CMAKE_CURRENT_SOURCE_DIR}/Module.symvers
                   ${OBJ}
                   DEPENDS ${SOURCES} Kbuild Kconfig
-                  COMMENT "Building ethosu_remoteproc.ko"
+                  COMMENT "Building remoteproc modules"
                   VERBATIM)
 

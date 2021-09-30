@@ -18,5 +18,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 #
 
-obj-$(CONFIG_ETHOSU_RESET) += ethosu_bridge_reset.o
-obj-$(CONFIG_ETHOSU_REMOTEPROC) += ethosu_remoteproc.o
+obj-$(CONFIG_ARM_SGM775_ETHOSU_RESET) += ethosu_bridge_reset.o
+obj-$(CONFIG_ARM_JUNO_FPGA_RESET) += juno_fpga_reset.o
+obj-$(CONFIG_ARM_ETHOSU_RPROC) += ethosu_remoteproc.o
