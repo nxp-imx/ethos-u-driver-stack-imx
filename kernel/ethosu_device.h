@@ -76,6 +76,7 @@ struct ethosu_capabilities {
 int ethosu_dev_init(struct ethosu_device *edev,
 		    struct device *dev,
 		    struct class *class,
+		    dev_t devt,
 		    struct resource *in_queue,
 		    struct resource *out_queue);
 

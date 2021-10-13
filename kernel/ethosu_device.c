@@ -44,8 +44,6 @@
  * Defines
  ****************************************************************************/
 
-#define MINOR_VERSION  0 /* Minor version starts at 0 */
-#define MINOR_COUNT    1 /* Allocate 1 minor version */
 #define DMA_ADDR_BITS 32 /* Number of address bits */
 
 #define CAPABILITIES_RESP_TIMEOUT_MS 100
@@ -397,6 +395,7 @@ static void ethosu_mbox_rx(void *user_arg)
 int ethosu_dev_init(struct ethosu_device *edev,
 		    struct device *dev,
 		    struct class *class,
+		    dev_t devt,
 		    struct resource *in_queue,
 		    struct resource *out_queue)
 {
@@ -413,6 +412,7 @@ int ethosu_dev_init(struct ethosu_device *edev,
 
 	edev->dev = dev;
 	edev->class = class;
+	edev->devt = devt;
 	mutex_init(&edev->mutex);
 	INIT_LIST_HEAD(&edev->capabilities_list);
 	INIT_LIST_HEAD(&edev->inference_list);
@@ -428,24 +428,17 @@ int ethosu_dev_init(struct ethosu_device *edev,
 	if (ret)
 		goto release_reserved_mem;
 
-	ret = alloc_chrdev_region(&edev->devt, MINOR_VERSION, MINOR_COUNT,
-				  "ethosu");
-	if (ret) {
-		dev_err(edev->dev, "Failed to allocate chrdev region.\n");
-		goto deinit_mailbox;
-	}
-
 	cdev_init(&edev->cdev, &fops);
 	edev->cdev.owner = THIS_MODULE;
 
-	ret = cdev_add(&edev->cdev, edev->devt, MINOR_COUNT);
+	ret = cdev_add(&edev->cdev, edev->devt, 1);
 	if (ret) {
 		dev_err(edev->dev, "Failed to add character device.\n");
-		goto region_unregister;
+		goto deinit_mailbox;
 	}
 
 	sysdev = device_create(edev->class, NULL, edev->devt, edev,
-			       "ethosu%d", MAJOR(edev->devt));
+			       "ethosu%d", MINOR(edev->devt));
 	if (IS_ERR(sysdev)) {
 		dev_err(edev->dev, "Failed to create device.\n");
 		ret = PTR_ERR(sysdev);
@@ -461,9 +454,6 @@ int ethosu_dev_init(struct ethosu_device *edev,
 del_cdev:
 	cdev_del(&edev->cdev);
 
-region_unregister:
-	unregister_chrdev_region(edev->devt, 1);
-
 deinit_mailbox:
 	ethosu_mailbox_deinit(&edev->mailbox);
 
@@ -478,7 +468,6 @@ void ethosu_dev_deinit(struct ethosu_device *edev)
 	ethosu_mailbox_deinit(&edev->mailbox);
 	device_destroy(edev->class, edev->cdev.dev);
 	cdev_del(&edev->cdev);
-	unregister_chrdev_region(edev->devt, MINOR_COUNT);
 	of_reserved_mem_device_release(edev->dev);
 
 	dev_info(edev->dev, "%s\n", __FUNCTION__);

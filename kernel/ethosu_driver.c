@@ -18,6 +18,8 @@
  * SPDX-License-Identifier: GPL-2.0-only
  */
 
+#include <linux/bitmap.h>
+#include <linux/fs.h>
 #include <linux/module.h>
 #include <linux/io.h>
 #include <linux/of.h>
@@ -33,11 +35,18 @@
 #define ETHOSU_DRIVER_VERSION "1.0"
 #define ETHOSU_DRIVER_NAME    "ethosu"
 
+#define MINOR_BASE      0 /* Minor version starts at 0 */
+#define MINOR_COUNT    64 /* Allocate minor versions */
+
 /****************************************************************************
  * Variables
  ****************************************************************************/
 
-struct class *ethosu_class;
+static struct class *ethosu_class;
+
+static dev_t devt;
+
+static DECLARE_BITMAP(minors, MINOR_COUNT);
 
 /****************************************************************************
  * Arm Ethos-U
@@ -48,9 +57,17 @@ static int ethosu_pdev_probe(struct platform_device *pdev)
 	struct ethosu_device *edev;
 	struct resource *in_queue_res;
 	struct resource *out_queue_res;
+	int minor;
 	int ret;
 
 	dev_info(&pdev->dev, "Probe\n");
+
+	minor = find_first_zero_bit(minors, MINOR_COUNT);
+	if (minor >= MINOR_COUNT) {
+		dev_err(&pdev->dev, "No more minor numbers.\n");
+
+		return -ENOMEM;
+	}
 
 	/* Get path to TCM memory */
 	in_queue_res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
@@ -77,10 +94,13 @@ static int ethosu_pdev_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, edev);
 
 	/* Initialize device */
-	ret = ethosu_dev_init(edev, &pdev->dev, ethosu_class, in_queue_res,
+	ret = ethosu_dev_init(edev, &pdev->dev, ethosu_class,
+			      MKDEV(MAJOR(devt), minor), in_queue_res,
 			      out_queue_res);
 	if (ret)
 		goto free_dev;
+
+	set_bit(minor, minors);
 
 	return 0;
 
@@ -94,8 +114,7 @@ static int ethosu_pdev_remove(struct platform_device *pdev)
 {
 	struct ethosu_device *edev = platform_get_drvdata(pdev);
 
-	dev_info(&pdev->dev, "Remove\n");
-
+	clear_bit(MINOR(edev->devt), minors);
 	ethosu_dev_deinit(edev);
 
 	return 0;
@@ -133,13 +152,23 @@ static int __init ethosu_init(void)
 		return PTR_ERR(ethosu_class);
 	}
 
-	ret = platform_driver_register(&ethosu_pdev_driver);
+	ret = alloc_chrdev_region(&devt, MINOR_BASE, MINOR_COUNT,
+				  ETHOSU_DRIVER_NAME);
 	if (ret) {
-		printk("Failed to register Arm Ethos-U platform driver.\n");
+		printk("Failed to allocate chrdev region.\n");
 		goto destroy_class;
 	}
 
+	ret = platform_driver_register(&ethosu_pdev_driver);
+	if (ret) {
+		printk("Failed to register Arm Ethos-U platform driver.\n");
+		goto region_unregister;
+	}
+
 	return 0;
+
+region_unregister:
+	unregister_chrdev_region(devt, MINOR_COUNT);
 
 destroy_class:
 	class_destroy(ethosu_class);
@@ -150,6 +179,7 @@ destroy_class:
 static void __exit ethosu_exit(void)
 {
 	platform_driver_unregister(&ethosu_pdev_driver);
+	unregister_chrdev_region(devt, MINOR_COUNT);
 	class_destroy(ethosu_class);
 }
 
