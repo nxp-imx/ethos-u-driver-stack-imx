@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021 Arm Limited. All rights reserved.
+# Copyright (c) 2021 Arm Limited. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -16,5 +16,8 @@
 # limitations under the License.
 #
 
-add_subdirectory(ethosu_logd)
-add_subdirectory(inference_runner)
+# Build executable
+add_executable(ethosu_logd main.cpp dev_mem.cpp)
+
+# Install target
+install(TARGETS ethosu_logd DESTINATION "bin")
