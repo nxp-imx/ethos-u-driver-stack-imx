@@ -45,7 +45,6 @@ __attribute__((weak)) int eioctl(int fd, unsigned long cmd, void *data = nullptr
 
 __attribute__((weak)) int eopen(const char *pathname, int flags) {
     int fd = ::open(pathname, flags);
-
     if (fd < 0) {
         throw Exception("Failed to open device");
     }
@@ -54,18 +53,38 @@ __attribute__((weak)) int eopen(const char *pathname, int flags) {
 }
 
 __attribute__((weak)) int epoll(struct pollfd *fds, nfds_t nfds, int timeout) {
-    return ::poll(fds, nfds, timeout);
+    int result = ::poll(fds, nfds, timeout);
+    if (result < 0) {
+        throw Exception("Failed to wait for poll event");
+    }
+
+    return result;
 }
 
 __attribute__((weak)) int eclose(int fd) {
-    return ::close(fd);
+    int result = ::close(fd);
+    if (result < 0) {
+        throw Exception("Failed to close file");
+    }
+
+    return result;
 }
 __attribute((weak)) void *emmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
-    return ::mmap(addr, length, prot, flags, fd, offset);
+    void *ptr = ::mmap(addr, length, prot, flags, fd, offset);
+    if (ptr == MAP_FAILED) {
+        throw Exception("Failed to mmap file");
+    }
+
+    return ptr;
 }
 
 __attribute__((weak)) int emunmap(void *addr, size_t length) {
-    return ::munmap(addr, length);
+    int result = ::munmap(addr, length);
+    if (result < 0) {
+        throw Exception("Failed to munmap file");
+    }
+
+    return result;
 }
 
 } // namespace EthosU
@@ -213,10 +232,6 @@ Buffer::Buffer(Device &device, const size_t capacity) : fd(-1), dataPtr(nullptr)
     fd                             = device.ioctl(ETHOSU_IOCTL_BUFFER_CREATE, static_cast<void *>(&uapi));
 
     void *d = emmap(nullptr, dataCapacity, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if (d == MAP_FAILED) {
-        throw Exception("MMap failed");
-    }
-
     dataPtr = reinterpret_cast<char *>(d);
 }
 
