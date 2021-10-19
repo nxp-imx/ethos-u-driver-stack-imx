@@ -27,6 +27,7 @@
 
 #include <fcntl.h>
 #include <poll.h>
+#include <signal.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -52,10 +53,11 @@ __attribute__((weak)) int eopen(const char *pathname, int flags) {
     return fd;
 }
 
-__attribute__((weak)) int epoll(struct pollfd *fds, nfds_t nfds, int timeout) {
-    int result = ::poll(fds, nfds, timeout);
+__attribute__((weak)) int
+eppoll(struct pollfd *fds, nfds_t nfds, const struct timespec *tmo_p, const sigset_t *sigmask) {
+    int result = ::ppoll(fds, nfds, tmo_p, sigmask);
     if (result < 0) {
-        throw Exception("Failed to wait for poll event");
+        throw Exception("Failed to wait for ppoll event or signal");
     }
 
     return result;
@@ -391,18 +393,23 @@ uint32_t Inference::getMaxPmuEventCounters() {
     return ETHOSU_PMU_EVENT_MAX;
 }
 
-int Inference::wait(int timeoutSec) {
-    pollfd pfd;
-
+int Inference::wait(int64_t timeoutNanos) {
+    struct pollfd pfd;
     pfd.fd      = fd;
     pfd.events  = POLLIN | POLLERR;
     pfd.revents = 0;
 
-    int ret = epoll(&pfd, 1, timeoutSec * 1000);
+    // if timeout negative wait forever
+    if (timeoutNanos < 0) {
+        return eppoll(&pfd, 1, NULL, NULL);
+    }
 
-    cout << "Poll. ret=" << ret << ", revents=" << pfd.revents << endl;
+    struct timespec tmo_p;
+    int64_t nanosec = 1000000000;
+    tmo_p.tv_sec    = timeoutNanos / nanosec;
+    tmo_p.tv_nsec   = timeoutNanos % nanosec;
 
-    return ret;
+    return eppoll(&pfd, 1, &tmo_p, NULL);
 }
 
 bool Inference::failed() {

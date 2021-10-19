@@ -31,7 +31,7 @@ using namespace std;
 using namespace EthosU;
 
 namespace {
-int defaultTimeout = 60;
+int64_t defaultTimeout = 60000000000;
 
 void help(const string exe) {
     cerr << "Usage: " << exe << " [ARGS]\n";
@@ -44,7 +44,7 @@ void help(const string exe) {
     cerr << "    -P --pmu [0.." << Inference::getMaxPmuEventCounters() << "] eventid.\n";
     cerr << "                    PMU counter to enable followed by eventid, can be passed multiple times.\n";
     cerr << "    -C --cycles     Enable cycle counter for inference.\n";
-    cerr << "    -t --timeout    Timeout in seconds (default " << defaultTimeout << ").\n";
+    cerr << "    -t --timeout    Timeout in nanoseconds (default " << defaultTimeout << ").\n";
     cerr << "    -p              Print OFM.\n";
     cerr << endl;
 }
@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
     list<string> ifmArg;
     vector<uint8_t> enabledCounters(Inference::getMaxPmuEventCounters());
     string ofmArg;
-    int timeout             = defaultTimeout;
+    int64_t timeout         = defaultTimeout;
     bool print              = false;
     bool enableCycleCounter = false;
 
@@ -162,7 +162,7 @@ int main(int argc, char *argv[]) {
             ofmArg = argv[i];
         } else if (arg == "--timeout" || arg == "-t") {
             rangeCheck(++i, argc, arg);
-            timeout = stoi(argv[i]);
+            timeout = stoll(argv[i]);
         } else if (arg == "--pmu" || arg == "-P") {
             unsigned pmu = 0, event = 0;
             rangeCheck(++i, argc, arg);
@@ -244,8 +244,10 @@ int main(int argc, char *argv[]) {
         for (auto &inference : inferences) {
 
             /* make sure the wait completes ok */
-            if (inference->wait(timeout) <= 0) {
-                cout << "Failed to wait for inference completion" << endl;
+            try {
+                inference->wait(timeout);
+            } catch (std::exception &e) {
+                cout << "Failed to wait for inference completion: " << e.what() << endl;
                 exit(1);
             }
 

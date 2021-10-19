@@ -214,7 +214,7 @@ public:
 
     virtual ~Inference();
 
-    int wait(int timeoutSec = -1);
+    int wait(int64_t timeoutNanos = -1);
     const std::vector<uint32_t> getPmuCounters();
     uint64_t getCycleCounter();
     bool failed();
