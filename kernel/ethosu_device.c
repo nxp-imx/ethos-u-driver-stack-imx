@@ -46,7 +46,7 @@
 
 #define DMA_ADDR_BITS 32 /* Number of address bits */
 
-#define CAPABILITIES_RESP_TIMEOUT_MS 100
+#define CAPABILITIES_RESP_TIMEOUT_MS 2000
 
 /****************************************************************************
  * Types
