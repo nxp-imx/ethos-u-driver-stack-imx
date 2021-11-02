@@ -56,7 +56,9 @@ static void __iomem *verify_and_remap(struct device *dev,
 
 	if (id != 0x2010f &&
                 id != 0x20110 &&
-                id != 0x20111) {
+                id != 0x20111 &&
+                id != 0x20112) {
+                dev_err(dev, "ID not matching");
 		return IOMEM_ERR_PTR(-EINVAL);
         }
 
@@ -122,8 +124,10 @@ static int juno_fpga_reset_probe(struct platform_device *pdev)
 	reset->base = verify_and_remap(dev, res);
 	reset->dev = dev;
 
-	if (IS_ERR(reset->base))
+	if (IS_ERR(reset->base)) {
+                dev_err(dev, "Failed to verify and remap base address (%ld)", PTR_ERR(reset->base));
 		return PTR_ERR(reset->base);
+        }
 
 	platform_set_drvdata(pdev, reset);
 
@@ -132,7 +136,7 @@ static int juno_fpga_reset_probe(struct platform_device *pdev)
 	reset->rst.ops = &juno_fpga_reset_ops;
 	reset->rst.of_node = pdev->dev.of_node;
 
-	dev_dbg(dev, "registering to reset controller core");
+	dev_info(dev, "registering to reset controller core");
 
 	return devm_reset_controller_register(dev, &reset->rst);
 }
