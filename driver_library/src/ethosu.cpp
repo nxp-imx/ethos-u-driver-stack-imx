@@ -233,7 +233,14 @@ Buffer::Buffer(Device &device, const size_t capacity) : fd(-1), dataPtr(nullptr)
     ethosu_uapi_buffer_create uapi = {static_cast<uint32_t>(dataCapacity)};
     fd                             = device.ioctl(ETHOSU_IOCTL_BUFFER_CREATE, static_cast<void *>(&uapi));
 
-    void *d = emmap(nullptr, dataCapacity, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    void *d;
+    try {
+        d = emmap(nullptr, dataCapacity, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    } catch (std::exception &e) {
+        try {
+            eclose(fd);
+        } catch (...) { std::throw_with_nested(e); }
+    }
     dataPtr = reinterpret_cast<char *>(d);
 }
 
@@ -291,7 +298,9 @@ Network::Network(Device &device, shared_ptr<Buffer> &buffer) : fd(-1), buffer(bu
     const tflite::Model *model = tflite::GetModel(reinterpret_cast<void *>(buffer->data()));
 
     if (model->subgraphs() == nullptr) {
-        throw EthosU::Exception("Failed to get subgraphs: nullptr");
+        try {
+            eclose(fd);
+        } catch (...) { std::throw_with_nested(EthosU::Exception("Failed to get subgraphs: nullptr")); }
     }
 
     // Get input dimensions for first subgraph
