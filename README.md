@@ -6,8 +6,12 @@ subsystem, consisting of an Arm Cortex-M of choice and an Arm Ethos-U NPU.
 
 ## Building
 
-The driver stack comes with a CMake based build system. Cross compile for an Arm
-CPU can for example be done with the provided toolchain file.
+The driver stack comes with a CMake based build system. A toolchain file is
+provided for reference how to cross compile for an Aarch64 based system.
+
+Building the kernel modules requires a configured Linux kernel source tree. How
+to download and configure the Linux kernel goes beyond the scope of this readme.
+Please refer to the Linux kernel official documentation.
 
 ```
 $ mkdir build
