@@ -1,5 +1,5 @@
 /*
- * (C) COPYRIGHT 2020 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2021 Arm Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -67,7 +67,8 @@ static const struct file_operations ethosu_buffer_fops = {
  * offset ourselves.
  */
 static dma_addr_t ethosu_buffer_dma_ranges(struct device *dev,
-					   dma_addr_t dma_addr)
+					   dma_addr_t dma_addr,
+					   size_t dma_buf_size)
 {
 	struct device_node *node = dev->of_node;
 	const __be32 *ranges;
@@ -107,7 +108,8 @@ static dma_addr_t ethosu_buffer_dma_ranges(struct device *dev,
 		dev_dbg(dev, "daddr=0x%llx, paddr=0x%llx, size=0x%llx\n",
 			daddr, paddr, size);
 
-		if (dma_addr >= paddr && dma_addr < (paddr + size))
+		if (dma_addr >= paddr &&
+		    (dma_addr + dma_buf_size) < (paddr + size))
 			return dma_addr + daddr - paddr;
 	}
 
@@ -236,7 +238,8 @@ int ethosu_buffer_create(struct ethosu_device *edev,
 		goto free_buf;
 
 	buf->dma_addr = ethosu_buffer_dma_ranges(buf->edev->dev,
-						 buf->dma_addr_orig);
+						 buf->dma_addr_orig,
+						 buf->capacity);
 
 	ret = anon_inode_getfd("ethosu-buffer", &ethosu_buffer_fops, buf,
 			       O_RDWR | O_CLOEXEC);
