@@ -28,6 +28,7 @@
 #include <linux/platform_device.h>
 #include <linux/remoteproc.h>
 #include <linux/reset.h>
+#include <linux/version.h>
 
 #define ETHOSU_RPROC_DRIVER_VERSION "0.0.1"
 
@@ -92,9 +93,16 @@ static void ethosu_rproc_kick(struct rproc *rproc,
 	return;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 13, 0)
 static void *ethosu_da_to_va(struct rproc *rproc,
 			     u64 da,
 			     int len)
+#else
+static void *ethosu_da_to_va(struct rproc *rproc,
+			     u64 da,
+			     size_t len,
+			     bool *is_iomem)
+#endif
 {
 	struct ethosu_rproc *ethosu = (struct ethosu_rproc *)rproc->priv;
 	int offset;
