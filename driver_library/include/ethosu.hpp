@@ -131,8 +131,8 @@ public:
     Device(const char *device = "/dev/ethosu0");
     virtual ~Device();
 
-    int ioctl(unsigned long cmd, void *data = nullptr);
-    Capabilities capabilities();
+    int ioctl(unsigned long cmd, void *data = nullptr) const;
+    Capabilities capabilities() const;
 
 private:
     int fd;
@@ -140,13 +140,13 @@ private:
 
 class Buffer {
 public:
-    Buffer(Device &device, const size_t capacity);
+    Buffer(const Device &device, const size_t capacity);
     virtual ~Buffer();
 
     size_t capacity() const;
-    void clear();
-    char *data();
-    void resize(size_t size, size_t offset = 0);
+    void clear() const;
+    char *data() const;
+    void resize(size_t size, size_t offset = 0) const;
     size_t offset() const;
     size_t size() const;
 
@@ -160,7 +160,7 @@ private:
 
 class Network {
 public:
-    Network(Device &device, std::shared_ptr<Buffer> &buffer);
+    Network(const Device &device, std::shared_ptr<Buffer> &buffer);
     virtual ~Network();
 
     int ioctl(unsigned long cmd, void *data = nullptr);
@@ -180,7 +180,7 @@ private:
 class Inference {
 public:
     template <typename T>
-    Inference(std::shared_ptr<Network> &network,
+    Inference(const std::shared_ptr<Network> &network,
               const T &ifmBegin,
               const T &ifmEnd,
               const T &ofmBegin,
@@ -193,7 +193,7 @@ public:
         create(counterConfigs, false);
     }
     template <typename T, typename U>
-    Inference(std::shared_ptr<Network> &network,
+    Inference(const std::shared_ptr<Network> &network,
               const T &ifmBegin,
               const T &ifmEnd,
               const T &ofmBegin,
@@ -214,12 +214,12 @@ public:
 
     virtual ~Inference();
 
-    int wait(int64_t timeoutNanos = -1);
-    const std::vector<uint32_t> getPmuCounters();
-    uint64_t getCycleCounter();
-    bool failed();
-    int getFd();
-    std::shared_ptr<Network> getNetwork();
+    int wait(int64_t timeoutNanos = -1) const;
+    const std::vector<uint32_t> getPmuCounters() const;
+    uint64_t getCycleCounter() const;
+    bool failed() const;
+    int getFd() const;
+    const std::shared_ptr<Network> getNetwork() const;
     std::vector<std::shared_ptr<Buffer>> &getIfmBuffers();
     std::vector<std::shared_ptr<Buffer>> &getOfmBuffers();
 
@@ -230,7 +230,7 @@ private:
     std::vector<uint32_t> initializeCounterConfig();
 
     int fd;
-    std::shared_ptr<Network> network;
+    const std::shared_ptr<Network> network;
     std::vector<std::shared_ptr<Buffer>> ifmBuffers;
     std::vector<std::shared_ptr<Buffer>> ofmBuffers;
 };

@@ -208,11 +208,11 @@ Device::~Device() {
     eclose(fd);
 }
 
-int Device::ioctl(unsigned long cmd, void *data) {
+int Device::ioctl(unsigned long cmd, void *data) const {
     return eioctl(fd, cmd, data);
 }
 
-Capabilities Device::capabilities() {
+Capabilities Device::capabilities() const {
     ethosu_uapi_device_capabilities uapi;
     (void)eioctl(fd, ETHOSU_IOCTL_CAPABILITIES_REQ, static_cast<void *>(&uapi));
 
@@ -230,7 +230,7 @@ Capabilities Device::capabilities() {
  * Buffer
  ****************************************************************************/
 
-Buffer::Buffer(Device &device, const size_t capacity) : fd(-1), dataPtr(nullptr), dataCapacity(capacity) {
+Buffer::Buffer(const Device &device, const size_t capacity) : fd(-1), dataPtr(nullptr), dataCapacity(capacity) {
     ethosu_uapi_buffer_create uapi = {static_cast<uint32_t>(dataCapacity)};
     fd                             = device.ioctl(ETHOSU_IOCTL_BUFFER_CREATE, static_cast<void *>(&uapi));
 
@@ -254,15 +254,15 @@ size_t Buffer::capacity() const {
     return dataCapacity;
 }
 
-void Buffer::clear() {
+void Buffer::clear() const {
     resize(0, 0);
 }
 
-char *Buffer::data() {
+char *Buffer::data() const {
     return dataPtr + offset();
 }
 
-void Buffer::resize(size_t size, size_t offset) {
+void Buffer::resize(size_t size, size_t offset) const {
     ethosu_uapi_buffer uapi;
     uapi.offset = offset;
     uapi.size   = size;
@@ -289,7 +289,7 @@ int Buffer::getFd() const {
  * Network
  ****************************************************************************/
 
-Network::Network(Device &device, shared_ptr<Buffer> &buffer) : fd(-1), buffer(buffer) {
+Network::Network(const Device &device, shared_ptr<Buffer> &buffer) : fd(-1), buffer(buffer) {
     // Create buffer handle
     ethosu_uapi_network_create uapi;
     uapi.fd = buffer->getFd();
@@ -403,7 +403,7 @@ uint32_t Inference::getMaxPmuEventCounters() {
     return ETHOSU_PMU_EVENT_MAX;
 }
 
-int Inference::wait(int64_t timeoutNanos) {
+int Inference::wait(int64_t timeoutNanos) const {
     struct pollfd pfd;
     pfd.fd      = fd;
     pfd.events  = POLLIN | POLLERR;
@@ -422,7 +422,7 @@ int Inference::wait(int64_t timeoutNanos) {
     return eppoll(&pfd, 1, &tmo_p, NULL);
 }
 
-bool Inference::failed() {
+bool Inference::failed() const {
     ethosu_uapi_result_status uapi;
 
     eioctl(fd, ETHOSU_IOCTL_INFERENCE_STATUS, static_cast<void *>(&uapi));
@@ -430,7 +430,7 @@ bool Inference::failed() {
     return uapi.status != ETHOSU_UAPI_STATUS_OK;
 }
 
-const std::vector<uint32_t> Inference::getPmuCounters() {
+const std::vector<uint32_t> Inference::getPmuCounters() const {
     ethosu_uapi_result_status uapi;
     std::vector<uint32_t> counterValues = std::vector<uint32_t>(ETHOSU_PMU_EVENT_MAX, 0);
 
@@ -445,7 +445,7 @@ const std::vector<uint32_t> Inference::getPmuCounters() {
     return counterValues;
 }
 
-uint64_t Inference::getCycleCounter() {
+uint64_t Inference::getCycleCounter() const {
     ethosu_uapi_result_status uapi;
 
     eioctl(fd, ETHOSU_IOCTL_INFERENCE_STATUS, static_cast<void *>(&uapi));
@@ -453,11 +453,11 @@ uint64_t Inference::getCycleCounter() {
     return uapi.pmu_count.cycle_count;
 }
 
-int Inference::getFd() {
+int Inference::getFd() const {
     return fd;
 }
 
-shared_ptr<Network> Inference::getNetwork() {
+const shared_ptr<Network> Inference::getNetwork() const {
     return network;
 }
 
