@@ -40,7 +40,7 @@ list(TRANSFORM OBJ PREPEND ${CMAKE_CURRENT_SOURCE_DIR}/)
 add_custom_target(mailbox-module ALL
     COMMAND ${CMAKE_MAKE_PROGRAM} -C ${KDIR}
                   M=${CMAKE_CURRENT_SOURCE_DIR} CONFIG_ARM_MHU_V2=m CONFIG_ARM_MHU=m
-                  CROSS_COMPILE=aarch64-linux-gnu- ARCH=arm64 modules
+                  CROSS_COMPILE=${CROSS_COMPILE} ARCH=${ARCH} modules
                   BYPRODUCTS
                   ${CMAKE_CURRENT_SOURCE_DIR}/arm_mhu.ko
                   ${CMAKE_CURRENT_SOURCE_DIR}/arm_mhu.o
@@ -57,3 +57,4 @@ add_custom_target(mailbox-module ALL
                   COMMENT "Building arm_mhu.ko arm_mhu_v2.ko"
                   VERBATIM)
 
+install(FILES arm_mhu.ko arm_mhu_v2.ko DESTINATION "modules")

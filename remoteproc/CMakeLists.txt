@@ -43,7 +43,7 @@ add_custom_target(ethosu-remoteproc-module ALL
     COMMAND ${CMAKE_MAKE_PROGRAM} -C ${KDIR}
     EXTRA_CFLAGS=-I${KDIR}/../../../drivers/remoteproc M=${CMAKE_CURRENT_SOURCE_DIR}
                   ${MODULES}
-                  CROSS_COMPILE=aarch64-linux-gnu- ARCH=arm64 modules
+                  CROSS_COMPILE=${CROSS_COMPILE} ARCH=${ARCH} modules
                   BYPRODUCTS
                   ${CMAKE_CURRENT_SOURCE_DIR}/ethosu_remoteproc.ko
                   ${CMAKE_CURRENT_SOURCE_DIR}/ethosu_remoteproc.mod.o
@@ -54,3 +54,4 @@ add_custom_target(ethosu-remoteproc-module ALL
                   COMMENT "Building remoteproc modules"
                   VERBATIM)
 
+install(FILES ethosu_remoteproc.ko DESTINATION "modules")

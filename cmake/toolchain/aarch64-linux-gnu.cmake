@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020 Arm Limited. All rights reserved.
+# Copyright (c) 2020-2021 Arm Limited. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -19,6 +19,7 @@
 set(CMAKE_SYSTEM_NAME Generic)
 set(CMAKE_C_COMPILER "aarch64-linux-gnu-gcc")
 set(CMAKE_CXX_COMPILER "aarch64-linux-gnu-g++")
-set (CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_SYSTEM_PROCESSOR "aarch64")
 
 add_compile_options(-Wall -Wextra)

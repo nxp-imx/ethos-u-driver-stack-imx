@@ -34,7 +34,7 @@ file(GLOB_RECURSE SOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "*.c" "*.h")
 
 # Build the kernel module
 add_custom_target(kernel ALL
-                  COMMAND ${CMAKE_MAKE_PROGRAM} -C ${KDIR} M=${CMAKE_CURRENT_SOURCE_DIR} CONFIG_ETHOSU=m CROSS_COMPILE=aarch64-linux-gnu- ARCH=arm64 modules
+                  COMMAND ${CMAKE_MAKE_PROGRAM} -C ${KDIR} M=${CMAKE_CURRENT_SOURCE_DIR} CONFIG_ETHOSU=m CROSS_COMPILE=${CROSS_COMPILE} ARCH=${ARCH} modules
                   BYPRODUCTS ethosu.ko
                   DEPENDS ${SOURCES} Kbuild Kconfig
                   COMMENT "Building ethosu.ko"

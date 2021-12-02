@@ -26,6 +26,15 @@ option(BUILD_KERNEL "Build the kernel driver" ON)
 option(BUILD_MAILBOX "Build the MHU mailbox kernel module" ON)
 option(BUILD_REMOTEPROC "Build the remoteproc kernel module" ON)
 
+# Set variables
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+    set(ARCH "arm64")
+else()
+    set(ARCH "arm")
+endif()
+
+string(REGEX REPLACE "(.*)gcc$" "\\1" CROSS_COMPILE "${CMAKE_C_COMPILER}")
+
 # Add rpath to library directory
 set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 
@@ -42,7 +51,7 @@ if (BUILD_MAILBOX)
 endif()
 
 if (BUILD_REMOTEPROC)
-add_subdirectory(remoteproc)
+    add_subdirectory(remoteproc)
 endif()
 
 # Build flatbuffers
