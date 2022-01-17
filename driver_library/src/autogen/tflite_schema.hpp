@@ -35,6 +35,9 @@ struct TensorBuilder;
 struct Conv2DOptions;
 struct Conv2DOptionsBuilder;
 
+struct Conv3DOptions;
+struct Conv3DOptionsBuilder;
+
 struct Pool2DOptions;
 struct Pool2DOptionsBuilder;
 
@@ -311,6 +314,9 @@ struct MatrixSetDiagOptionsBuilder;
 struct IfOptions;
 struct IfOptionsBuilder;
 
+struct CallOnceOptions;
+struct CallOnceOptionsBuilder;
+
 struct WhileOptions;
 struct WhileOptionsBuilder;
 
@@ -335,6 +341,45 @@ struct SegmentSumOptionsBuilder;
 struct BatchMatMulOptions;
 struct BatchMatMulOptionsBuilder;
 
+struct CumsumOptions;
+struct CumsumOptionsBuilder;
+
+struct BroadcastToOptions;
+struct BroadcastToOptionsBuilder;
+
+struct Rfft2dOptions;
+struct Rfft2dOptionsBuilder;
+
+struct HashtableOptions;
+struct HashtableOptionsBuilder;
+
+struct HashtableFindOptions;
+struct HashtableFindOptionsBuilder;
+
+struct HashtableImportOptions;
+struct HashtableImportOptionsBuilder;
+
+struct HashtableSizeOptions;
+struct HashtableSizeOptionsBuilder;
+
+struct VarHandleOptions;
+struct VarHandleOptionsBuilder;
+
+struct ReadVariableOptions;
+struct ReadVariableOptionsBuilder;
+
+struct AssignVariableOptions;
+struct AssignVariableOptionsBuilder;
+
+struct RandomOptions;
+struct RandomOptionsBuilder;
+
+struct BucketizeOptions;
+struct BucketizeOptionsBuilder;
+
+struct GeluOptions;
+struct GeluOptionsBuilder;
+
 struct OperatorCode;
 struct OperatorCodeBuilder;
 
@@ -350,10 +395,16 @@ struct BufferBuilder;
 struct Metadata;
 struct MetadataBuilder;
 
+struct TensorMap;
+struct TensorMapBuilder;
+
+struct SignatureDef;
+struct SignatureDefBuilder;
+
 struct Model;
 struct ModelBuilder;
 
-enum TensorType {
+enum TensorType : int8_t {
   TensorType_FLOAT32 = 0,
   TensorType_FLOAT16 = 1,
   TensorType_INT32 = 2,
@@ -366,11 +417,15 @@ enum TensorType {
   TensorType_INT8 = 9,
   TensorType_FLOAT64 = 10,
   TensorType_COMPLEX128 = 11,
+  TensorType_UINT64 = 12,
+  TensorType_RESOURCE = 13,
+  TensorType_VARIANT = 14,
+  TensorType_UINT32 = 15,
   TensorType_MIN = TensorType_FLOAT32,
-  TensorType_MAX = TensorType_COMPLEX128
+  TensorType_MAX = TensorType_UINT32
 };
 
-inline const TensorType (&EnumValuesTensorType())[12] {
+inline const TensorType (&EnumValuesTensorType())[16] {
   static const TensorType values[] = {
     TensorType_FLOAT32,
     TensorType_FLOAT16,
@@ -383,13 +438,17 @@ inline const TensorType (&EnumValuesTensorType())[12] {
     TensorType_COMPLEX64,
     TensorType_INT8,
     TensorType_FLOAT64,
-    TensorType_COMPLEX128
+    TensorType_COMPLEX128,
+    TensorType_UINT64,
+    TensorType_RESOURCE,
+    TensorType_VARIANT,
+    TensorType_UINT32
   };
   return values;
 }
 
 inline const char * const *EnumNamesTensorType() {
-  static const char * const names[13] = {
+  static const char * const names[17] = {
     "FLOAT32",
     "FLOAT16",
     "INT32",
@@ -402,18 +461,22 @@ inline const char * const *EnumNamesTensorType() {
     "INT8",
     "FLOAT64",
     "COMPLEX128",
+    "UINT64",
+    "RESOURCE",
+    "VARIANT",
+    "UINT32",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameTensorType(TensorType e) {
-  if (flatbuffers::IsOutRange(e, TensorType_FLOAT32, TensorType_COMPLEX128)) return "";
+  if (flatbuffers::IsOutRange(e, TensorType_FLOAT32, TensorType_UINT32)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesTensorType()[index];
 }
 
-enum QuantizationDetails {
+enum QuantizationDetails : uint8_t {
   QuantizationDetails_NONE = 0,
   QuantizationDetails_CustomQuantization = 1,
   QuantizationDetails_MIN = QuantizationDetails_NONE,
@@ -454,7 +517,7 @@ template<> struct QuantizationDetailsTraits<tflite::CustomQuantization> {
 bool VerifyQuantizationDetails(flatbuffers::Verifier &verifier, const void *obj, QuantizationDetails type);
 bool VerifyQuantizationDetailsVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
 
-enum DimensionType {
+enum DimensionType : int8_t {
   DimensionType_DENSE = 0,
   DimensionType_SPARSE_CSR = 1,
   DimensionType_MIN = DimensionType_DENSE,
@@ -484,7 +547,7 @@ inline const char *EnumNameDimensionType(DimensionType e) {
   return EnumNamesDimensionType()[index];
 }
 
-enum SparseIndexVector {
+enum SparseIndexVector : uint8_t {
   SparseIndexVector_NONE = 0,
   SparseIndexVector_Int32Vector = 1,
   SparseIndexVector_Uint16Vector = 2,
@@ -539,7 +602,7 @@ template<> struct SparseIndexVectorTraits<tflite::Uint8Vector> {
 bool VerifySparseIndexVector(flatbuffers::Verifier &verifier, const void *obj, SparseIndexVector type);
 bool VerifySparseIndexVectorVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
 
-enum BuiltinOperator {
+enum BuiltinOperator : int32_t {
   BuiltinOperator_ADD = 0,
   BuiltinOperator_AVERAGE_POOL_2D = 1,
   BuiltinOperator_CONCATENATION = 2,
@@ -667,11 +730,35 @@ enum BuiltinOperator {
   BuiltinOperator_DENSIFY = 124,
   BuiltinOperator_SEGMENT_SUM = 125,
   BuiltinOperator_BATCH_MATMUL = 126,
+  BuiltinOperator_PLACEHOLDER_FOR_GREATER_OP_CODES = 127,
+  BuiltinOperator_CUMSUM = 128,
+  BuiltinOperator_CALL_ONCE = 129,
+  BuiltinOperator_BROADCAST_TO = 130,
+  BuiltinOperator_RFFT2D = 131,
+  BuiltinOperator_CONV_3D = 132,
+  BuiltinOperator_IMAG = 133,
+  BuiltinOperator_REAL = 134,
+  BuiltinOperator_COMPLEX_ABS = 135,
+  BuiltinOperator_HASHTABLE = 136,
+  BuiltinOperator_HASHTABLE_FIND = 137,
+  BuiltinOperator_HASHTABLE_IMPORT = 138,
+  BuiltinOperator_HASHTABLE_SIZE = 139,
+  BuiltinOperator_REDUCE_ALL = 140,
+  BuiltinOperator_CONV_3D_TRANSPOSE = 141,
+  BuiltinOperator_VAR_HANDLE = 142,
+  BuiltinOperator_READ_VARIABLE = 143,
+  BuiltinOperator_ASSIGN_VARIABLE = 144,
+  BuiltinOperator_BROADCAST_ARGS = 145,
+  BuiltinOperator_RANDOM_STANDARD_NORMAL = 146,
+  BuiltinOperator_BUCKETIZE = 147,
+  BuiltinOperator_RANDOM_UNIFORM = 148,
+  BuiltinOperator_MULTINOMIAL = 149,
+  BuiltinOperator_GELU = 150,
   BuiltinOperator_MIN = BuiltinOperator_ADD,
-  BuiltinOperator_MAX = BuiltinOperator_BATCH_MATMUL
+  BuiltinOperator_MAX = BuiltinOperator_GELU
 };
 
-inline const BuiltinOperator (&EnumValuesBuiltinOperator())[127] {
+inline const BuiltinOperator (&EnumValuesBuiltinOperator())[151] {
   static const BuiltinOperator values[] = {
     BuiltinOperator_ADD,
     BuiltinOperator_AVERAGE_POOL_2D,
@@ -799,13 +886,37 @@ inline const BuiltinOperator (&EnumValuesBuiltinOperator())[127] {
     BuiltinOperator_SELECT_V2,
     BuiltinOperator_DENSIFY,
     BuiltinOperator_SEGMENT_SUM,
-    BuiltinOperator_BATCH_MATMUL
+    BuiltinOperator_BATCH_MATMUL,
+    BuiltinOperator_PLACEHOLDER_FOR_GREATER_OP_CODES,
+    BuiltinOperator_CUMSUM,
+    BuiltinOperator_CALL_ONCE,
+    BuiltinOperator_BROADCAST_TO,
+    BuiltinOperator_RFFT2D,
+    BuiltinOperator_CONV_3D,
+    BuiltinOperator_IMAG,
+    BuiltinOperator_REAL,
+    BuiltinOperator_COMPLEX_ABS,
+    BuiltinOperator_HASHTABLE,
+    BuiltinOperator_HASHTABLE_FIND,
+    BuiltinOperator_HASHTABLE_IMPORT,
+    BuiltinOperator_HASHTABLE_SIZE,
+    BuiltinOperator_REDUCE_ALL,
+    BuiltinOperator_CONV_3D_TRANSPOSE,
+    BuiltinOperator_VAR_HANDLE,
+    BuiltinOperator_READ_VARIABLE,
+    BuiltinOperator_ASSIGN_VARIABLE,
+    BuiltinOperator_BROADCAST_ARGS,
+    BuiltinOperator_RANDOM_STANDARD_NORMAL,
+    BuiltinOperator_BUCKETIZE,
+    BuiltinOperator_RANDOM_UNIFORM,
+    BuiltinOperator_MULTINOMIAL,
+    BuiltinOperator_GELU
   };
   return values;
 }
 
 inline const char * const *EnumNamesBuiltinOperator() {
-  static const char * const names[128] = {
+  static const char * const names[152] = {
     "ADD",
     "AVERAGE_POOL_2D",
     "CONCATENATION",
@@ -933,18 +1044,42 @@ inline const char * const *EnumNamesBuiltinOperator() {
     "DENSIFY",
     "SEGMENT_SUM",
     "BATCH_MATMUL",
+    "PLACEHOLDER_FOR_GREATER_OP_CODES",
+    "CUMSUM",
+    "CALL_ONCE",
+    "BROADCAST_TO",
+    "RFFT2D",
+    "CONV_3D",
+    "IMAG",
+    "REAL",
+    "COMPLEX_ABS",
+    "HASHTABLE",
+    "HASHTABLE_FIND",
+    "HASHTABLE_IMPORT",
+    "HASHTABLE_SIZE",
+    "REDUCE_ALL",
+    "CONV_3D_TRANSPOSE",
+    "VAR_HANDLE",
+    "READ_VARIABLE",
+    "ASSIGN_VARIABLE",
+    "BROADCAST_ARGS",
+    "RANDOM_STANDARD_NORMAL",
+    "BUCKETIZE",
+    "RANDOM_UNIFORM",
+    "MULTINOMIAL",
+    "GELU",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameBuiltinOperator(BuiltinOperator e) {
-  if (flatbuffers::IsOutRange(e, BuiltinOperator_ADD, BuiltinOperator_BATCH_MATMUL)) return "";
+  if (flatbuffers::IsOutRange(e, BuiltinOperator_ADD, BuiltinOperator_GELU)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesBuiltinOperator()[index];
 }
 
-enum BuiltinOptions {
+enum BuiltinOptions : uint8_t {
   BuiltinOptions_NONE = 0,
   BuiltinOptions_Conv2DOptions = 1,
   BuiltinOptions_DepthwiseConv2DOptions = 2,
@@ -1047,11 +1182,26 @@ enum BuiltinOptions {
   BuiltinOptions_DensifyOptions = 99,
   BuiltinOptions_SegmentSumOptions = 100,
   BuiltinOptions_BatchMatMulOptions = 101,
+  BuiltinOptions_CumsumOptions = 102,
+  BuiltinOptions_CallOnceOptions = 103,
+  BuiltinOptions_BroadcastToOptions = 104,
+  BuiltinOptions_Rfft2dOptions = 105,
+  BuiltinOptions_Conv3DOptions = 106,
+  BuiltinOptions_HashtableOptions = 107,
+  BuiltinOptions_HashtableFindOptions = 108,
+  BuiltinOptions_HashtableImportOptions = 109,
+  BuiltinOptions_HashtableSizeOptions = 110,
+  BuiltinOptions_VarHandleOptions = 111,
+  BuiltinOptions_ReadVariableOptions = 112,
+  BuiltinOptions_AssignVariableOptions = 113,
+  BuiltinOptions_RandomOptions = 114,
+  BuiltinOptions_BucketizeOptions = 115,
+  BuiltinOptions_GeluOptions = 116,
   BuiltinOptions_MIN = BuiltinOptions_NONE,
-  BuiltinOptions_MAX = BuiltinOptions_BatchMatMulOptions
+  BuiltinOptions_MAX = BuiltinOptions_GeluOptions
 };
 
-inline const BuiltinOptions (&EnumValuesBuiltinOptions())[102] {
+inline const BuiltinOptions (&EnumValuesBuiltinOptions())[117] {
   static const BuiltinOptions values[] = {
     BuiltinOptions_NONE,
     BuiltinOptions_Conv2DOptions,
@@ -1154,13 +1304,28 @@ inline const BuiltinOptions (&EnumValuesBuiltinOptions())[102] {
     BuiltinOptions_SelectV2Options,
     BuiltinOptions_DensifyOptions,
     BuiltinOptions_SegmentSumOptions,
-    BuiltinOptions_BatchMatMulOptions
+    BuiltinOptions_BatchMatMulOptions,
+    BuiltinOptions_CumsumOptions,
+    BuiltinOptions_CallOnceOptions,
+    BuiltinOptions_BroadcastToOptions,
+    BuiltinOptions_Rfft2dOptions,
+    BuiltinOptions_Conv3DOptions,
+    BuiltinOptions_HashtableOptions,
+    BuiltinOptions_HashtableFindOptions,
+    BuiltinOptions_HashtableImportOptions,
+    BuiltinOptions_HashtableSizeOptions,
+    BuiltinOptions_VarHandleOptions,
+    BuiltinOptions_ReadVariableOptions,
+    BuiltinOptions_AssignVariableOptions,
+    BuiltinOptions_RandomOptions,
+    BuiltinOptions_BucketizeOptions,
+    BuiltinOptions_GeluOptions
   };
   return values;
 }
 
 inline const char * const *EnumNamesBuiltinOptions() {
-  static const char * const names[103] = {
+  static const char * const names[118] = {
     "NONE",
     "Conv2DOptions",
     "DepthwiseConv2DOptions",
@@ -1263,13 +1428,28 @@ inline const char * const *EnumNamesBuiltinOptions() {
     "DensifyOptions",
     "SegmentSumOptions",
     "BatchMatMulOptions",
+    "CumsumOptions",
+    "CallOnceOptions",
+    "BroadcastToOptions",
+    "Rfft2dOptions",
+    "Conv3DOptions",
+    "HashtableOptions",
+    "HashtableFindOptions",
+    "HashtableImportOptions",
+    "HashtableSizeOptions",
+    "VarHandleOptions",
+    "ReadVariableOptions",
+    "AssignVariableOptions",
+    "RandomOptions",
+    "BucketizeOptions",
+    "GeluOptions",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameBuiltinOptions(BuiltinOptions e) {
-  if (flatbuffers::IsOutRange(e, BuiltinOptions_NONE, BuiltinOptions_BatchMatMulOptions)) return "";
+  if (flatbuffers::IsOutRange(e, BuiltinOptions_NONE, BuiltinOptions_GeluOptions)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesBuiltinOptions()[index];
 }
@@ -1682,10 +1862,70 @@ template<> struct BuiltinOptionsTraits<tflite::BatchMatMulOptions> {
   static const BuiltinOptions enum_value = BuiltinOptions_BatchMatMulOptions;
 };
 
+template<> struct BuiltinOptionsTraits<tflite::CumsumOptions> {
+  static const BuiltinOptions enum_value = BuiltinOptions_CumsumOptions;
+};
+
+template<> struct BuiltinOptionsTraits<tflite::CallOnceOptions> {
+  static const BuiltinOptions enum_value = BuiltinOptions_CallOnceOptions;
+};
+
+template<> struct BuiltinOptionsTraits<tflite::BroadcastToOptions> {
+  static const BuiltinOptions enum_value = BuiltinOptions_BroadcastToOptions;
+};
+
+template<> struct BuiltinOptionsTraits<tflite::Rfft2dOptions> {
+  static const BuiltinOptions enum_value = BuiltinOptions_Rfft2dOptions;
+};
+
+template<> struct BuiltinOptionsTraits<tflite::Conv3DOptions> {
+  static const BuiltinOptions enum_value = BuiltinOptions_Conv3DOptions;
+};
+
+template<> struct BuiltinOptionsTraits<tflite::HashtableOptions> {
+  static const BuiltinOptions enum_value = BuiltinOptions_HashtableOptions;
+};
+
+template<> struct BuiltinOptionsTraits<tflite::HashtableFindOptions> {
+  static const BuiltinOptions enum_value = BuiltinOptions_HashtableFindOptions;
+};
+
+template<> struct BuiltinOptionsTraits<tflite::HashtableImportOptions> {
+  static const BuiltinOptions enum_value = BuiltinOptions_HashtableImportOptions;
+};
+
+template<> struct BuiltinOptionsTraits<tflite::HashtableSizeOptions> {
+  static const BuiltinOptions enum_value = BuiltinOptions_HashtableSizeOptions;
+};
+
+template<> struct BuiltinOptionsTraits<tflite::VarHandleOptions> {
+  static const BuiltinOptions enum_value = BuiltinOptions_VarHandleOptions;
+};
+
+template<> struct BuiltinOptionsTraits<tflite::ReadVariableOptions> {
+  static const BuiltinOptions enum_value = BuiltinOptions_ReadVariableOptions;
+};
+
+template<> struct BuiltinOptionsTraits<tflite::AssignVariableOptions> {
+  static const BuiltinOptions enum_value = BuiltinOptions_AssignVariableOptions;
+};
+
+template<> struct BuiltinOptionsTraits<tflite::RandomOptions> {
+  static const BuiltinOptions enum_value = BuiltinOptions_RandomOptions;
+};
+
+template<> struct BuiltinOptionsTraits<tflite::BucketizeOptions> {
+  static const BuiltinOptions enum_value = BuiltinOptions_BucketizeOptions;
+};
+
+template<> struct BuiltinOptionsTraits<tflite::GeluOptions> {
+  static const BuiltinOptions enum_value = BuiltinOptions_GeluOptions;
+};
+
 bool VerifyBuiltinOptions(flatbuffers::Verifier &verifier, const void *obj, BuiltinOptions type);
 bool VerifyBuiltinOptionsVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
 
-enum Padding {
+enum Padding : int8_t {
   Padding_SAME = 0,
   Padding_VALID = 1,
   Padding_MIN = Padding_SAME,
@@ -1715,7 +1955,7 @@ inline const char *EnumNamePadding(Padding e) {
   return EnumNamesPadding()[index];
 }
 
-enum ActivationFunctionType {
+enum ActivationFunctionType : int8_t {
   ActivationFunctionType_NONE = 0,
   ActivationFunctionType_RELU = 1,
   ActivationFunctionType_RELU_N1_TO_1 = 2,
@@ -1757,7 +1997,7 @@ inline const char *EnumNameActivationFunctionType(ActivationFunctionType e) {
   return EnumNamesActivationFunctionType()[index];
 }
 
-enum LSHProjectionType {
+enum LSHProjectionType : int8_t {
   LSHProjectionType_UNKNOWN = 0,
   LSHProjectionType_SPARSE = 1,
   LSHProjectionType_DENSE = 2,
@@ -1790,7 +2030,7 @@ inline const char *EnumNameLSHProjectionType(LSHProjectionType e) {
   return EnumNamesLSHProjectionType()[index];
 }
 
-enum FullyConnectedOptionsWeightsFormat {
+enum FullyConnectedOptionsWeightsFormat : int8_t {
   FullyConnectedOptionsWeightsFormat_DEFAULT = 0,
   FullyConnectedOptionsWeightsFormat_SHUFFLED4x16INT8 = 1,
   FullyConnectedOptionsWeightsFormat_MIN = FullyConnectedOptionsWeightsFormat_DEFAULT,
@@ -1820,7 +2060,7 @@ inline const char *EnumNameFullyConnectedOptionsWeightsFormat(FullyConnectedOpti
   return EnumNamesFullyConnectedOptionsWeightsFormat()[index];
 }
 
-enum LSTMKernelType {
+enum LSTMKernelType : int8_t {
   LSTMKernelType_FULL = 0,
   LSTMKernelType_BASIC = 1,
   LSTMKernelType_MIN = LSTMKernelType_FULL,
@@ -1850,7 +2090,7 @@ inline const char *EnumNameLSTMKernelType(LSTMKernelType e) {
   return EnumNamesLSTMKernelType()[index];
 }
 
-enum CombinerType {
+enum CombinerType : int8_t {
   CombinerType_SUM = 0,
   CombinerType_MEAN = 1,
   CombinerType_SQRTN = 2,
@@ -1883,7 +2123,7 @@ inline const char *EnumNameCombinerType(CombinerType e) {
   return EnumNamesCombinerType()[index];
 }
 
-enum MirrorPadMode {
+enum MirrorPadMode : int8_t {
   MirrorPadMode_REFLECT = 0,
   MirrorPadMode_SYMMETRIC = 1,
   MirrorPadMode_MIN = MirrorPadMode_REFLECT,
@@ -1913,7 +2153,7 @@ inline const char *EnumNameMirrorPadMode(MirrorPadMode e) {
   return EnumNamesMirrorPadMode()[index];
 }
 
-enum CustomOptionsFormat {
+enum CustomOptionsFormat : int8_t {
   CustomOptionsFormat_FLEXBUFFERS = 0,
   CustomOptionsFormat_MIN = CustomOptionsFormat_FLEXBUFFERS,
   CustomOptionsFormat_MAX = CustomOptionsFormat_FLEXBUFFERS
@@ -2038,10 +2278,10 @@ struct QuantizationParameters FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tab
            verifier.VerifyVector(scale()) &&
            VerifyOffset(verifier, VT_ZERO_POINT) &&
            verifier.VerifyVector(zero_point()) &&
-           VerifyField<uint8_t>(verifier, VT_DETAILS_TYPE) &&
+           VerifyField<uint8_t>(verifier, VT_DETAILS_TYPE, 1) &&
            VerifyOffset(verifier, VT_DETAILS) &&
            VerifyQuantizationDetails(verifier, details(), details_type()) &&
-           VerifyField<int32_t>(verifier, VT_QUANTIZED_DIMENSION) &&
+           VerifyField<int32_t>(verifier, VT_QUANTIZED_DIMENSION, 4) &&
            verifier.EndTable();
   }
 };
@@ -2335,12 +2575,12 @@ struct DimensionMetadata FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_FORMAT) &&
-           VerifyField<int32_t>(verifier, VT_DENSE_SIZE) &&
-           VerifyField<uint8_t>(verifier, VT_ARRAY_SEGMENTS_TYPE) &&
+           VerifyField<int8_t>(verifier, VT_FORMAT, 1) &&
+           VerifyField<int32_t>(verifier, VT_DENSE_SIZE, 4) &&
+           VerifyField<uint8_t>(verifier, VT_ARRAY_SEGMENTS_TYPE, 1) &&
            VerifyOffset(verifier, VT_ARRAY_SEGMENTS) &&
            VerifySparseIndexVector(verifier, array_segments(), array_segments_type()) &&
-           VerifyField<uint8_t>(verifier, VT_ARRAY_INDICES_TYPE) &&
+           VerifyField<uint8_t>(verifier, VT_ARRAY_INDICES_TYPE, 1) &&
            VerifyOffset(verifier, VT_ARRAY_INDICES) &&
            VerifySparseIndexVector(verifier, array_indices(), array_indices_type()) &&
            verifier.EndTable();
@@ -2542,13 +2782,13 @@ struct Tensor FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_SHAPE) &&
            verifier.VerifyVector(shape()) &&
-           VerifyField<int8_t>(verifier, VT_TYPE) &&
-           VerifyField<uint32_t>(verifier, VT_BUFFER) &&
+           VerifyField<int8_t>(verifier, VT_TYPE, 1) &&
+           VerifyField<uint32_t>(verifier, VT_BUFFER, 4) &&
            VerifyOffset(verifier, VT_NAME) &&
            verifier.VerifyString(name()) &&
            VerifyOffset(verifier, VT_QUANTIZATION) &&
            verifier.VerifyTable(quantization()) &&
-           VerifyField<uint8_t>(verifier, VT_IS_VARIABLE) &&
+           VerifyField<uint8_t>(verifier, VT_IS_VARIABLE, 1) &&
            VerifyOffset(verifier, VT_SPARSITY) &&
            verifier.VerifyTable(sparsity()) &&
            VerifyOffset(verifier, VT_SHAPE_SIGNATURE) &&
@@ -2673,12 +2913,12 @@ struct Conv2DOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_PADDING) &&
-           VerifyField<int32_t>(verifier, VT_STRIDE_W) &&
-           VerifyField<int32_t>(verifier, VT_STRIDE_H) &&
-           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION) &&
-           VerifyField<int32_t>(verifier, VT_DILATION_W_FACTOR) &&
-           VerifyField<int32_t>(verifier, VT_DILATION_H_FACTOR) &&
+           VerifyField<int8_t>(verifier, VT_PADDING, 1) &&
+           VerifyField<int32_t>(verifier, VT_STRIDE_W, 4) &&
+           VerifyField<int32_t>(verifier, VT_STRIDE_H, 4) &&
+           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION, 1) &&
+           VerifyField<int32_t>(verifier, VT_DILATION_W_FACTOR, 4) &&
+           VerifyField<int32_t>(verifier, VT_DILATION_H_FACTOR, 4) &&
            verifier.EndTable();
   }
 };
@@ -2734,6 +2974,117 @@ inline flatbuffers::Offset<Conv2DOptions> CreateConv2DOptions(
   return builder_.Finish();
 }
 
+struct Conv3DOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef Conv3DOptionsBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_PADDING = 4,
+    VT_STRIDE_D = 6,
+    VT_STRIDE_W = 8,
+    VT_STRIDE_H = 10,
+    VT_FUSED_ACTIVATION_FUNCTION = 12,
+    VT_DILATION_D_FACTOR = 14,
+    VT_DILATION_W_FACTOR = 16,
+    VT_DILATION_H_FACTOR = 18
+  };
+  tflite::Padding padding() const {
+    return static_cast<tflite::Padding>(GetField<int8_t>(VT_PADDING, 0));
+  }
+  int32_t stride_d() const {
+    return GetField<int32_t>(VT_STRIDE_D, 0);
+  }
+  int32_t stride_w() const {
+    return GetField<int32_t>(VT_STRIDE_W, 0);
+  }
+  int32_t stride_h() const {
+    return GetField<int32_t>(VT_STRIDE_H, 0);
+  }
+  tflite::ActivationFunctionType fused_activation_function() const {
+    return static_cast<tflite::ActivationFunctionType>(GetField<int8_t>(VT_FUSED_ACTIVATION_FUNCTION, 0));
+  }
+  int32_t dilation_d_factor() const {
+    return GetField<int32_t>(VT_DILATION_D_FACTOR, 1);
+  }
+  int32_t dilation_w_factor() const {
+    return GetField<int32_t>(VT_DILATION_W_FACTOR, 1);
+  }
+  int32_t dilation_h_factor() const {
+    return GetField<int32_t>(VT_DILATION_H_FACTOR, 1);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int8_t>(verifier, VT_PADDING, 1) &&
+           VerifyField<int32_t>(verifier, VT_STRIDE_D, 4) &&
+           VerifyField<int32_t>(verifier, VT_STRIDE_W, 4) &&
+           VerifyField<int32_t>(verifier, VT_STRIDE_H, 4) &&
+           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION, 1) &&
+           VerifyField<int32_t>(verifier, VT_DILATION_D_FACTOR, 4) &&
+           VerifyField<int32_t>(verifier, VT_DILATION_W_FACTOR, 4) &&
+           VerifyField<int32_t>(verifier, VT_DILATION_H_FACTOR, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct Conv3DOptionsBuilder {
+  typedef Conv3DOptions Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_padding(tflite::Padding padding) {
+    fbb_.AddElement<int8_t>(Conv3DOptions::VT_PADDING, static_cast<int8_t>(padding), 0);
+  }
+  void add_stride_d(int32_t stride_d) {
+    fbb_.AddElement<int32_t>(Conv3DOptions::VT_STRIDE_D, stride_d, 0);
+  }
+  void add_stride_w(int32_t stride_w) {
+    fbb_.AddElement<int32_t>(Conv3DOptions::VT_STRIDE_W, stride_w, 0);
+  }
+  void add_stride_h(int32_t stride_h) {
+    fbb_.AddElement<int32_t>(Conv3DOptions::VT_STRIDE_H, stride_h, 0);
+  }
+  void add_fused_activation_function(tflite::ActivationFunctionType fused_activation_function) {
+    fbb_.AddElement<int8_t>(Conv3DOptions::VT_FUSED_ACTIVATION_FUNCTION, static_cast<int8_t>(fused_activation_function), 0);
+  }
+  void add_dilation_d_factor(int32_t dilation_d_factor) {
+    fbb_.AddElement<int32_t>(Conv3DOptions::VT_DILATION_D_FACTOR, dilation_d_factor, 1);
+  }
+  void add_dilation_w_factor(int32_t dilation_w_factor) {
+    fbb_.AddElement<int32_t>(Conv3DOptions::VT_DILATION_W_FACTOR, dilation_w_factor, 1);
+  }
+  void add_dilation_h_factor(int32_t dilation_h_factor) {
+    fbb_.AddElement<int32_t>(Conv3DOptions::VT_DILATION_H_FACTOR, dilation_h_factor, 1);
+  }
+  explicit Conv3DOptionsBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<Conv3DOptions> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<Conv3DOptions>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<Conv3DOptions> CreateConv3DOptions(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    tflite::Padding padding = tflite::Padding_SAME,
+    int32_t stride_d = 0,
+    int32_t stride_w = 0,
+    int32_t stride_h = 0,
+    tflite::ActivationFunctionType fused_activation_function = tflite::ActivationFunctionType_NONE,
+    int32_t dilation_d_factor = 1,
+    int32_t dilation_w_factor = 1,
+    int32_t dilation_h_factor = 1) {
+  Conv3DOptionsBuilder builder_(_fbb);
+  builder_.add_dilation_h_factor(dilation_h_factor);
+  builder_.add_dilation_w_factor(dilation_w_factor);
+  builder_.add_dilation_d_factor(dilation_d_factor);
+  builder_.add_stride_h(stride_h);
+  builder_.add_stride_w(stride_w);
+  builder_.add_stride_d(stride_d);
+  builder_.add_fused_activation_function(fused_activation_function);
+  builder_.add_padding(padding);
+  return builder_.Finish();
+}
+
 struct Pool2DOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef Pool2DOptionsBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -2764,12 +3115,12 @@ struct Pool2DOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_PADDING) &&
-           VerifyField<int32_t>(verifier, VT_STRIDE_W) &&
-           VerifyField<int32_t>(verifier, VT_STRIDE_H) &&
-           VerifyField<int32_t>(verifier, VT_FILTER_WIDTH) &&
-           VerifyField<int32_t>(verifier, VT_FILTER_HEIGHT) &&
-           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION) &&
+           VerifyField<int8_t>(verifier, VT_PADDING, 1) &&
+           VerifyField<int32_t>(verifier, VT_STRIDE_W, 4) &&
+           VerifyField<int32_t>(verifier, VT_STRIDE_H, 4) &&
+           VerifyField<int32_t>(verifier, VT_FILTER_WIDTH, 4) &&
+           VerifyField<int32_t>(verifier, VT_FILTER_HEIGHT, 4) &&
+           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION, 1) &&
            verifier.EndTable();
   }
 };
@@ -2859,13 +3210,13 @@ struct DepthwiseConv2DOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tab
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_PADDING) &&
-           VerifyField<int32_t>(verifier, VT_STRIDE_W) &&
-           VerifyField<int32_t>(verifier, VT_STRIDE_H) &&
-           VerifyField<int32_t>(verifier, VT_DEPTH_MULTIPLIER) &&
-           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION) &&
-           VerifyField<int32_t>(verifier, VT_DILATION_W_FACTOR) &&
-           VerifyField<int32_t>(verifier, VT_DILATION_H_FACTOR) &&
+           VerifyField<int8_t>(verifier, VT_PADDING, 1) &&
+           VerifyField<int32_t>(verifier, VT_STRIDE_W, 4) &&
+           VerifyField<int32_t>(verifier, VT_STRIDE_H, 4) &&
+           VerifyField<int32_t>(verifier, VT_DEPTH_MULTIPLIER, 4) &&
+           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION, 1) &&
+           VerifyField<int32_t>(verifier, VT_DILATION_W_FACTOR, 4) &&
+           VerifyField<int32_t>(verifier, VT_DILATION_H_FACTOR, 4) &&
            verifier.EndTable();
   }
 };
@@ -2944,7 +3295,7 @@ struct ConcatEmbeddingsOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Ta
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int32_t>(verifier, VT_NUM_CHANNELS) &&
+           VerifyField<int32_t>(verifier, VT_NUM_CHANNELS, 4) &&
            VerifyOffset(verifier, VT_NUM_COLUMNS_PER_CHANNEL) &&
            verifier.VerifyVector(num_columns_per_channel()) &&
            VerifyOffset(verifier, VT_EMBEDDING_DIM_PER_CHANNEL) &&
@@ -3013,7 +3364,7 @@ struct LSHProjectionOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_TYPE) &&
+           VerifyField<int8_t>(verifier, VT_TYPE, 1) &&
            verifier.EndTable();
   }
 };
@@ -3062,9 +3413,9 @@ struct SVDFOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int32_t>(verifier, VT_RANK) &&
-           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION) &&
-           VerifyField<uint8_t>(verifier, VT_ASYMMETRIC_QUANTIZE_INPUTS) &&
+           VerifyField<int32_t>(verifier, VT_RANK, 4) &&
+           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION, 1) &&
+           VerifyField<uint8_t>(verifier, VT_ASYMMETRIC_QUANTIZE_INPUTS, 1) &&
            verifier.EndTable();
   }
 };
@@ -3119,8 +3470,8 @@ struct RNNOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION) &&
-           VerifyField<uint8_t>(verifier, VT_ASYMMETRIC_QUANTIZE_INPUTS) &&
+           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION, 1) &&
+           VerifyField<uint8_t>(verifier, VT_ASYMMETRIC_QUANTIZE_INPUTS, 1) &&
            verifier.EndTable();
   }
 };
@@ -3174,9 +3525,9 @@ struct SequenceRNNOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint8_t>(verifier, VT_TIME_MAJOR) &&
-           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION) &&
-           VerifyField<uint8_t>(verifier, VT_ASYMMETRIC_QUANTIZE_INPUTS) &&
+           VerifyField<uint8_t>(verifier, VT_TIME_MAJOR, 1) &&
+           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION, 1) &&
+           VerifyField<uint8_t>(verifier, VT_ASYMMETRIC_QUANTIZE_INPUTS, 1) &&
            verifier.EndTable();
   }
 };
@@ -3239,10 +3590,10 @@ struct BidirectionalSequenceRNNOptions FLATBUFFERS_FINAL_CLASS : private flatbuf
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint8_t>(verifier, VT_TIME_MAJOR) &&
-           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION) &&
-           VerifyField<uint8_t>(verifier, VT_MERGE_OUTPUTS) &&
-           VerifyField<uint8_t>(verifier, VT_ASYMMETRIC_QUANTIZE_INPUTS) &&
+           VerifyField<uint8_t>(verifier, VT_TIME_MAJOR, 1) &&
+           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION, 1) &&
+           VerifyField<uint8_t>(verifier, VT_MERGE_OUTPUTS, 1) &&
+           VerifyField<uint8_t>(verifier, VT_ASYMMETRIC_QUANTIZE_INPUTS, 1) &&
            verifier.EndTable();
   }
 };
@@ -3310,10 +3661,10 @@ struct FullyConnectedOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION) &&
-           VerifyField<int8_t>(verifier, VT_WEIGHTS_FORMAT) &&
-           VerifyField<uint8_t>(verifier, VT_KEEP_NUM_DIMS) &&
-           VerifyField<uint8_t>(verifier, VT_ASYMMETRIC_QUANTIZE_INPUTS) &&
+           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION, 1) &&
+           VerifyField<int8_t>(verifier, VT_WEIGHTS_FORMAT, 1) &&
+           VerifyField<uint8_t>(verifier, VT_KEEP_NUM_DIMS, 1) &&
+           VerifyField<uint8_t>(verifier, VT_ASYMMETRIC_QUANTIZE_INPUTS, 1) &&
            verifier.EndTable();
   }
 };
@@ -3369,7 +3720,7 @@ struct SoftmaxOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<float>(verifier, VT_BETA) &&
+           VerifyField<float>(verifier, VT_BETA, 4) &&
            verifier.EndTable();
   }
 };
@@ -3414,8 +3765,8 @@ struct ConcatenationOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int32_t>(verifier, VT_AXIS) &&
-           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION) &&
+           VerifyField<int32_t>(verifier, VT_AXIS, 4) &&
+           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION, 1) &&
            verifier.EndTable();
   }
 };
@@ -3465,8 +3816,8 @@ struct AddOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION) &&
-           VerifyField<uint8_t>(verifier, VT_POT_SCALE_INT16) &&
+           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION, 1) &&
+           VerifyField<uint8_t>(verifier, VT_POT_SCALE_INT16, 1) &&
            verifier.EndTable();
   }
 };
@@ -3512,7 +3863,7 @@ struct MulOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION) &&
+           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION, 1) &&
            verifier.EndTable();
   }
 };
@@ -3553,7 +3904,7 @@ struct L2NormOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION) &&
+           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION, 1) &&
            verifier.EndTable();
   }
 };
@@ -3606,10 +3957,10 @@ struct LocalResponseNormalizationOptions FLATBUFFERS_FINAL_CLASS : private flatb
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int32_t>(verifier, VT_RADIUS) &&
-           VerifyField<float>(verifier, VT_BIAS) &&
-           VerifyField<float>(verifier, VT_ALPHA) &&
-           VerifyField<float>(verifier, VT_BETA) &&
+           VerifyField<int32_t>(verifier, VT_RADIUS, 4) &&
+           VerifyField<float>(verifier, VT_BIAS, 4) &&
+           VerifyField<float>(verifier, VT_ALPHA, 4) &&
+           VerifyField<float>(verifier, VT_BETA, 4) &&
            verifier.EndTable();
   }
 };
@@ -3681,11 +4032,11 @@ struct LSTMOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION) &&
-           VerifyField<float>(verifier, VT_CELL_CLIP) &&
-           VerifyField<float>(verifier, VT_PROJ_CLIP) &&
-           VerifyField<int8_t>(verifier, VT_KERNEL_TYPE) &&
-           VerifyField<uint8_t>(verifier, VT_ASYMMETRIC_QUANTIZE_INPUTS) &&
+           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION, 1) &&
+           VerifyField<float>(verifier, VT_CELL_CLIP, 4) &&
+           VerifyField<float>(verifier, VT_PROJ_CLIP, 4) &&
+           VerifyField<int8_t>(verifier, VT_KERNEL_TYPE, 1) &&
+           VerifyField<uint8_t>(verifier, VT_ASYMMETRIC_QUANTIZE_INPUTS, 1) &&
            verifier.EndTable();
   }
 };
@@ -3762,11 +4113,11 @@ struct UnidirectionalSequenceLSTMOptions FLATBUFFERS_FINAL_CLASS : private flatb
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION) &&
-           VerifyField<float>(verifier, VT_CELL_CLIP) &&
-           VerifyField<float>(verifier, VT_PROJ_CLIP) &&
-           VerifyField<uint8_t>(verifier, VT_TIME_MAJOR) &&
-           VerifyField<uint8_t>(verifier, VT_ASYMMETRIC_QUANTIZE_INPUTS) &&
+           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION, 1) &&
+           VerifyField<float>(verifier, VT_CELL_CLIP, 4) &&
+           VerifyField<float>(verifier, VT_PROJ_CLIP, 4) &&
+           VerifyField<uint8_t>(verifier, VT_TIME_MAJOR, 1) &&
+           VerifyField<uint8_t>(verifier, VT_ASYMMETRIC_QUANTIZE_INPUTS, 1) &&
            verifier.EndTable();
   }
 };
@@ -3847,12 +4198,12 @@ struct BidirectionalSequenceLSTMOptions FLATBUFFERS_FINAL_CLASS : private flatbu
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION) &&
-           VerifyField<float>(verifier, VT_CELL_CLIP) &&
-           VerifyField<float>(verifier, VT_PROJ_CLIP) &&
-           VerifyField<uint8_t>(verifier, VT_MERGE_OUTPUTS) &&
-           VerifyField<uint8_t>(verifier, VT_TIME_MAJOR) &&
-           VerifyField<uint8_t>(verifier, VT_ASYMMETRIC_QUANTIZE_INPUTS) &&
+           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION, 1) &&
+           VerifyField<float>(verifier, VT_CELL_CLIP, 4) &&
+           VerifyField<float>(verifier, VT_PROJ_CLIP, 4) &&
+           VerifyField<uint8_t>(verifier, VT_MERGE_OUTPUTS, 1) &&
+           VerifyField<uint8_t>(verifier, VT_TIME_MAJOR, 1) &&
+           VerifyField<uint8_t>(verifier, VT_ASYMMETRIC_QUANTIZE_INPUTS, 1) &&
            verifier.EndTable();
   }
 };
@@ -3922,8 +4273,8 @@ struct ResizeBilinearOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint8_t>(verifier, VT_ALIGN_CORNERS) &&
-           VerifyField<uint8_t>(verifier, VT_HALF_PIXEL_CENTERS) &&
+           VerifyField<uint8_t>(verifier, VT_ALIGN_CORNERS, 1) &&
+           VerifyField<uint8_t>(verifier, VT_HALF_PIXEL_CENTERS, 1) &&
            verifier.EndTable();
   }
 };
@@ -3973,8 +4324,8 @@ struct ResizeNearestNeighborOptions FLATBUFFERS_FINAL_CLASS : private flatbuffer
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint8_t>(verifier, VT_ALIGN_CORNERS) &&
-           VerifyField<uint8_t>(verifier, VT_HALF_PIXEL_CENTERS) &&
+           VerifyField<uint8_t>(verifier, VT_ALIGN_CORNERS, 1) &&
+           VerifyField<uint8_t>(verifier, VT_HALF_PIXEL_CENTERS, 1) &&
            verifier.EndTable();
   }
 };
@@ -4020,7 +4371,7 @@ struct CallOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint32_t>(verifier, VT_SUBGRAPH) &&
+           VerifyField<uint32_t>(verifier, VT_SUBGRAPH, 4) &&
            verifier.EndTable();
   }
 };
@@ -4236,9 +4587,9 @@ struct SkipGramOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int32_t>(verifier, VT_NGRAM_SIZE) &&
-           VerifyField<int32_t>(verifier, VT_MAX_SKIP_SIZE) &&
-           VerifyField<uint8_t>(verifier, VT_INCLUDE_ALL_NGRAMS) &&
+           VerifyField<int32_t>(verifier, VT_NGRAM_SIZE, 4) &&
+           VerifyField<int32_t>(verifier, VT_MAX_SKIP_SIZE, 4) &&
+           VerifyField<uint8_t>(verifier, VT_INCLUDE_ALL_NGRAMS, 1) &&
            verifier.EndTable();
   }
 };
@@ -4289,7 +4640,7 @@ struct SpaceToDepthOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table 
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int32_t>(verifier, VT_BLOCK_SIZE) &&
+           VerifyField<int32_t>(verifier, VT_BLOCK_SIZE, 4) &&
            verifier.EndTable();
   }
 };
@@ -4330,7 +4681,7 @@ struct DepthToSpaceOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table 
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int32_t>(verifier, VT_BLOCK_SIZE) &&
+           VerifyField<int32_t>(verifier, VT_BLOCK_SIZE, 4) &&
            verifier.EndTable();
   }
 };
@@ -4375,8 +4726,8 @@ struct SubOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION) &&
-           VerifyField<uint8_t>(verifier, VT_POT_SCALE_INT16) &&
+           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION, 1) &&
+           VerifyField<uint8_t>(verifier, VT_POT_SCALE_INT16, 1) &&
            verifier.EndTable();
   }
 };
@@ -4422,7 +4773,7 @@ struct DivOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION) &&
+           VerifyField<int8_t>(verifier, VT_FUSED_ACTIVATION_FUNCTION, 1) &&
            verifier.EndTable();
   }
 };
@@ -4492,7 +4843,7 @@ struct EmbeddingLookupSparseOptions FLATBUFFERS_FINAL_CLASS : private flatbuffer
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_COMBINER) &&
+           VerifyField<int8_t>(verifier, VT_COMBINER, 1) &&
            verifier.EndTable();
   }
 };
@@ -4526,14 +4877,19 @@ inline flatbuffers::Offset<EmbeddingLookupSparseOptions> CreateEmbeddingLookupSp
 struct GatherOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef GatherOptionsBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_AXIS = 4
+    VT_AXIS = 4,
+    VT_BATCH_DIMS = 6
   };
   int32_t axis() const {
     return GetField<int32_t>(VT_AXIS, 0);
   }
+  int32_t batch_dims() const {
+    return GetField<int32_t>(VT_BATCH_DIMS, 0);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int32_t>(verifier, VT_AXIS) &&
+           VerifyField<int32_t>(verifier, VT_AXIS, 4) &&
+           VerifyField<int32_t>(verifier, VT_BATCH_DIMS, 4) &&
            verifier.EndTable();
   }
 };
@@ -4544,6 +4900,9 @@ struct GatherOptionsBuilder {
   flatbuffers::uoffset_t start_;
   void add_axis(int32_t axis) {
     fbb_.AddElement<int32_t>(GatherOptions::VT_AXIS, axis, 0);
+  }
+  void add_batch_dims(int32_t batch_dims) {
+    fbb_.AddElement<int32_t>(GatherOptions::VT_BATCH_DIMS, batch_dims, 0);
   }
   explicit GatherOptionsBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -4558,8 +4917,10 @@ struct GatherOptionsBuilder {
 
 inline flatbuffers::Offset<GatherOptions> CreateGatherOptions(
     flatbuffers::FlatBufferBuilder &_fbb,
-    int32_t axis = 0) {
+    int32_t axis = 0,
+    int32_t batch_dims = 0) {
   GatherOptionsBuilder builder_(_fbb);
+  builder_.add_batch_dims(batch_dims);
   builder_.add_axis(axis);
   return builder_.Finish();
 }
@@ -4661,7 +5022,7 @@ struct ReducerOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint8_t>(verifier, VT_KEEP_DIMS) &&
+           VerifyField<uint8_t>(verifier, VT_KEEP_DIMS, 1) &&
            verifier.EndTable();
   }
 };
@@ -4753,7 +5114,7 @@ struct SplitOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int32_t>(verifier, VT_NUM_SPLITS) &&
+           VerifyField<int32_t>(verifier, VT_NUM_SPLITS, 4) &&
            verifier.EndTable();
   }
 };
@@ -4794,7 +5155,7 @@ struct SplitVOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int32_t>(verifier, VT_NUM_SPLITS) &&
+           VerifyField<int32_t>(verifier, VT_NUM_SPLITS, 4) &&
            verifier.EndTable();
   }
 };
@@ -4851,11 +5212,11 @@ struct StridedSliceOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table 
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int32_t>(verifier, VT_BEGIN_MASK) &&
-           VerifyField<int32_t>(verifier, VT_END_MASK) &&
-           VerifyField<int32_t>(verifier, VT_ELLIPSIS_MASK) &&
-           VerifyField<int32_t>(verifier, VT_NEW_AXIS_MASK) &&
-           VerifyField<int32_t>(verifier, VT_SHRINK_AXIS_MASK) &&
+           VerifyField<int32_t>(verifier, VT_BEGIN_MASK, 4) &&
+           VerifyField<int32_t>(verifier, VT_END_MASK, 4) &&
+           VerifyField<int32_t>(verifier, VT_ELLIPSIS_MASK, 4) &&
+           VerifyField<int32_t>(verifier, VT_NEW_AXIS_MASK, 4) &&
+           VerifyField<int32_t>(verifier, VT_SHRINK_AXIS_MASK, 4) &&
            verifier.EndTable();
   }
 };
@@ -4949,8 +5310,8 @@ struct CastOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_IN_DATA_TYPE) &&
-           VerifyField<int8_t>(verifier, VT_OUT_DATA_TYPE) &&
+           VerifyField<int8_t>(verifier, VT_IN_DATA_TYPE, 1) &&
+           VerifyField<int8_t>(verifier, VT_OUT_DATA_TYPE, 1) &&
            verifier.EndTable();
   }
 };
@@ -5083,7 +5444,7 @@ struct ArgMaxOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_OUTPUT_TYPE) &&
+           VerifyField<int8_t>(verifier, VT_OUTPUT_TYPE, 1) &&
            verifier.EndTable();
   }
 };
@@ -5124,7 +5485,7 @@ struct ArgMinOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_OUTPUT_TYPE) &&
+           VerifyField<int8_t>(verifier, VT_OUTPUT_TYPE, 1) &&
            verifier.EndTable();
   }
 };
@@ -5376,9 +5737,9 @@ struct TransposeConvOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_PADDING) &&
-           VerifyField<int32_t>(verifier, VT_STRIDE_W) &&
-           VerifyField<int32_t>(verifier, VT_STRIDE_H) &&
+           VerifyField<int8_t>(verifier, VT_PADDING, 1) &&
+           VerifyField<int32_t>(verifier, VT_STRIDE_W, 4) &&
+           VerifyField<int32_t>(verifier, VT_STRIDE_H, 4) &&
            verifier.EndTable();
   }
 };
@@ -5458,7 +5819,7 @@ struct SparseToDenseOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint8_t>(verifier, VT_VALIDATE_INDICES) &&
+           VerifyField<uint8_t>(verifier, VT_VALIDATE_INDICES, 1) &&
            verifier.EndTable();
   }
 };
@@ -5557,7 +5918,7 @@ struct ShapeOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_OUT_TYPE) &&
+           VerifyField<int8_t>(verifier, VT_OUT_TYPE, 1) &&
            verifier.EndTable();
   }
 };
@@ -5668,10 +6029,10 @@ struct FakeQuantOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<float>(verifier, VT_MIN) &&
-           VerifyField<float>(verifier, VT_MAX) &&
-           VerifyField<int32_t>(verifier, VT_NUM_BITS) &&
-           VerifyField<uint8_t>(verifier, VT_NARROW_RANGE) &&
+           VerifyField<float>(verifier, VT_MIN, 4) &&
+           VerifyField<float>(verifier, VT_MAX, 4) &&
+           VerifyField<int32_t>(verifier, VT_NUM_BITS, 4) &&
+           VerifyField<uint8_t>(verifier, VT_NARROW_RANGE, 1) &&
            verifier.EndTable();
   }
 };
@@ -5731,8 +6092,8 @@ struct PackOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int32_t>(verifier, VT_VALUES_COUNT) &&
-           VerifyField<int32_t>(verifier, VT_AXIS) &&
+           VerifyField<int32_t>(verifier, VT_VALUES_COUNT, 4) &&
+           VerifyField<int32_t>(verifier, VT_AXIS, 4) &&
            verifier.EndTable();
   }
 };
@@ -5807,7 +6168,7 @@ struct OneHotOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int32_t>(verifier, VT_AXIS) &&
+           VerifyField<int32_t>(verifier, VT_AXIS, 4) &&
            verifier.EndTable();
   }
 };
@@ -5968,8 +6329,8 @@ struct UnpackOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int32_t>(verifier, VT_NUM) &&
-           VerifyField<int32_t>(verifier, VT_AXIS) &&
+           VerifyField<int32_t>(verifier, VT_NUM, 4) &&
+           VerifyField<int32_t>(verifier, VT_AXIS, 4) &&
            verifier.EndTable();
   }
 };
@@ -6189,7 +6550,7 @@ struct LeakyReluOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<float>(verifier, VT_ALPHA) &&
+           VerifyField<float>(verifier, VT_ALPHA, 4) &&
            verifier.EndTable();
   }
 };
@@ -6259,7 +6620,7 @@ struct MirrorPadOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_MODE) &&
+           VerifyField<int8_t>(verifier, VT_MODE, 1) &&
            verifier.EndTable();
   }
 };
@@ -6300,7 +6661,7 @@ struct UniqueOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_IDX_OUT_TYPE) &&
+           VerifyField<int8_t>(verifier, VT_IDX_OUT_TYPE, 1) &&
            verifier.EndTable();
   }
 };
@@ -6461,8 +6822,8 @@ struct ReverseSequenceOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tab
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int32_t>(verifier, VT_SEQ_DIM) &&
-           VerifyField<int32_t>(verifier, VT_BATCH_DIM) &&
+           VerifyField<int32_t>(verifier, VT_SEQ_DIM, 4) &&
+           VerifyField<int32_t>(verifier, VT_BATCH_DIM, 4) &&
            verifier.EndTable();
   }
 };
@@ -6599,8 +6960,8 @@ struct IfOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int32_t>(verifier, VT_THEN_SUBGRAPH_INDEX) &&
-           VerifyField<int32_t>(verifier, VT_ELSE_SUBGRAPH_INDEX) &&
+           VerifyField<int32_t>(verifier, VT_THEN_SUBGRAPH_INDEX, 4) &&
+           VerifyField<int32_t>(verifier, VT_ELSE_SUBGRAPH_INDEX, 4) &&
            verifier.EndTable();
   }
 };
@@ -6636,6 +6997,47 @@ inline flatbuffers::Offset<IfOptions> CreateIfOptions(
   return builder_.Finish();
 }
 
+struct CallOnceOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef CallOnceOptionsBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_INIT_SUBGRAPH_INDEX = 4
+  };
+  int32_t init_subgraph_index() const {
+    return GetField<int32_t>(VT_INIT_SUBGRAPH_INDEX, 0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int32_t>(verifier, VT_INIT_SUBGRAPH_INDEX, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct CallOnceOptionsBuilder {
+  typedef CallOnceOptions Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_init_subgraph_index(int32_t init_subgraph_index) {
+    fbb_.AddElement<int32_t>(CallOnceOptions::VT_INIT_SUBGRAPH_INDEX, init_subgraph_index, 0);
+  }
+  explicit CallOnceOptionsBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<CallOnceOptions> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<CallOnceOptions>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<CallOnceOptions> CreateCallOnceOptions(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    int32_t init_subgraph_index = 0) {
+  CallOnceOptionsBuilder builder_(_fbb);
+  builder_.add_init_subgraph_index(init_subgraph_index);
+  return builder_.Finish();
+}
+
 struct WhileOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef WhileOptionsBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -6650,8 +7052,8 @@ struct WhileOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int32_t>(verifier, VT_COND_SUBGRAPH_INDEX) &&
-           VerifyField<int32_t>(verifier, VT_BODY_SUBGRAPH_INDEX) &&
+           VerifyField<int32_t>(verifier, VT_COND_SUBGRAPH_INDEX, 4) &&
+           VerifyField<int32_t>(verifier, VT_BODY_SUBGRAPH_INDEX, 4) &&
            verifier.EndTable();
   }
 };
@@ -6865,7 +7267,8 @@ struct BatchMatMulOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef BatchMatMulOptionsBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ADJ_X = 4,
-    VT_ADJ_Y = 6
+    VT_ADJ_Y = 6,
+    VT_ASYMMETRIC_QUANTIZE_INPUTS = 8
   };
   bool adj_x() const {
     return GetField<uint8_t>(VT_ADJ_X, 0) != 0;
@@ -6873,10 +7276,14 @@ struct BatchMatMulOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool adj_y() const {
     return GetField<uint8_t>(VT_ADJ_Y, 0) != 0;
   }
+  bool asymmetric_quantize_inputs() const {
+    return GetField<uint8_t>(VT_ASYMMETRIC_QUANTIZE_INPUTS, 0) != 0;
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint8_t>(verifier, VT_ADJ_X) &&
-           VerifyField<uint8_t>(verifier, VT_ADJ_Y) &&
+           VerifyField<uint8_t>(verifier, VT_ADJ_X, 1) &&
+           VerifyField<uint8_t>(verifier, VT_ADJ_Y, 1) &&
+           VerifyField<uint8_t>(verifier, VT_ASYMMETRIC_QUANTIZE_INPUTS, 1) &&
            verifier.EndTable();
   }
 };
@@ -6890,6 +7297,9 @@ struct BatchMatMulOptionsBuilder {
   }
   void add_adj_y(bool adj_y) {
     fbb_.AddElement<uint8_t>(BatchMatMulOptions::VT_ADJ_Y, static_cast<uint8_t>(adj_y), 0);
+  }
+  void add_asymmetric_quantize_inputs(bool asymmetric_quantize_inputs) {
+    fbb_.AddElement<uint8_t>(BatchMatMulOptions::VT_ASYMMETRIC_QUANTIZE_INPUTS, static_cast<uint8_t>(asymmetric_quantize_inputs), 0);
   }
   explicit BatchMatMulOptionsBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -6905,22 +7315,548 @@ struct BatchMatMulOptionsBuilder {
 inline flatbuffers::Offset<BatchMatMulOptions> CreateBatchMatMulOptions(
     flatbuffers::FlatBufferBuilder &_fbb,
     bool adj_x = false,
-    bool adj_y = false) {
+    bool adj_y = false,
+    bool asymmetric_quantize_inputs = false) {
   BatchMatMulOptionsBuilder builder_(_fbb);
+  builder_.add_asymmetric_quantize_inputs(asymmetric_quantize_inputs);
   builder_.add_adj_y(adj_y);
   builder_.add_adj_x(adj_x);
+  return builder_.Finish();
+}
+
+struct CumsumOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef CumsumOptionsBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_EXCLUSIVE = 4,
+    VT_REVERSE = 6
+  };
+  bool exclusive() const {
+    return GetField<uint8_t>(VT_EXCLUSIVE, 0) != 0;
+  }
+  bool reverse() const {
+    return GetField<uint8_t>(VT_REVERSE, 0) != 0;
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_EXCLUSIVE, 1) &&
+           VerifyField<uint8_t>(verifier, VT_REVERSE, 1) &&
+           verifier.EndTable();
+  }
+};
+
+struct CumsumOptionsBuilder {
+  typedef CumsumOptions Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_exclusive(bool exclusive) {
+    fbb_.AddElement<uint8_t>(CumsumOptions::VT_EXCLUSIVE, static_cast<uint8_t>(exclusive), 0);
+  }
+  void add_reverse(bool reverse) {
+    fbb_.AddElement<uint8_t>(CumsumOptions::VT_REVERSE, static_cast<uint8_t>(reverse), 0);
+  }
+  explicit CumsumOptionsBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<CumsumOptions> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<CumsumOptions>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<CumsumOptions> CreateCumsumOptions(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    bool exclusive = false,
+    bool reverse = false) {
+  CumsumOptionsBuilder builder_(_fbb);
+  builder_.add_reverse(reverse);
+  builder_.add_exclusive(exclusive);
+  return builder_.Finish();
+}
+
+struct BroadcastToOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef BroadcastToOptionsBuilder Builder;
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+};
+
+struct BroadcastToOptionsBuilder {
+  typedef BroadcastToOptions Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  explicit BroadcastToOptionsBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<BroadcastToOptions> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<BroadcastToOptions>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<BroadcastToOptions> CreateBroadcastToOptions(
+    flatbuffers::FlatBufferBuilder &_fbb) {
+  BroadcastToOptionsBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+struct Rfft2dOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef Rfft2dOptionsBuilder Builder;
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+};
+
+struct Rfft2dOptionsBuilder {
+  typedef Rfft2dOptions Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  explicit Rfft2dOptionsBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<Rfft2dOptions> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<Rfft2dOptions>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<Rfft2dOptions> CreateRfft2dOptions(
+    flatbuffers::FlatBufferBuilder &_fbb) {
+  Rfft2dOptionsBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+struct HashtableOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef HashtableOptionsBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_TABLE_ID = 4,
+    VT_KEY_DTYPE = 6,
+    VT_VALUE_DTYPE = 8
+  };
+  int32_t table_id() const {
+    return GetField<int32_t>(VT_TABLE_ID, 0);
+  }
+  tflite::TensorType key_dtype() const {
+    return static_cast<tflite::TensorType>(GetField<int8_t>(VT_KEY_DTYPE, 0));
+  }
+  tflite::TensorType value_dtype() const {
+    return static_cast<tflite::TensorType>(GetField<int8_t>(VT_VALUE_DTYPE, 0));
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int32_t>(verifier, VT_TABLE_ID, 4) &&
+           VerifyField<int8_t>(verifier, VT_KEY_DTYPE, 1) &&
+           VerifyField<int8_t>(verifier, VT_VALUE_DTYPE, 1) &&
+           verifier.EndTable();
+  }
+};
+
+struct HashtableOptionsBuilder {
+  typedef HashtableOptions Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_table_id(int32_t table_id) {
+    fbb_.AddElement<int32_t>(HashtableOptions::VT_TABLE_ID, table_id, 0);
+  }
+  void add_key_dtype(tflite::TensorType key_dtype) {
+    fbb_.AddElement<int8_t>(HashtableOptions::VT_KEY_DTYPE, static_cast<int8_t>(key_dtype), 0);
+  }
+  void add_value_dtype(tflite::TensorType value_dtype) {
+    fbb_.AddElement<int8_t>(HashtableOptions::VT_VALUE_DTYPE, static_cast<int8_t>(value_dtype), 0);
+  }
+  explicit HashtableOptionsBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<HashtableOptions> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<HashtableOptions>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<HashtableOptions> CreateHashtableOptions(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    int32_t table_id = 0,
+    tflite::TensorType key_dtype = tflite::TensorType_FLOAT32,
+    tflite::TensorType value_dtype = tflite::TensorType_FLOAT32) {
+  HashtableOptionsBuilder builder_(_fbb);
+  builder_.add_table_id(table_id);
+  builder_.add_value_dtype(value_dtype);
+  builder_.add_key_dtype(key_dtype);
+  return builder_.Finish();
+}
+
+struct HashtableFindOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef HashtableFindOptionsBuilder Builder;
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+};
+
+struct HashtableFindOptionsBuilder {
+  typedef HashtableFindOptions Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  explicit HashtableFindOptionsBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<HashtableFindOptions> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<HashtableFindOptions>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<HashtableFindOptions> CreateHashtableFindOptions(
+    flatbuffers::FlatBufferBuilder &_fbb) {
+  HashtableFindOptionsBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+struct HashtableImportOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef HashtableImportOptionsBuilder Builder;
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+};
+
+struct HashtableImportOptionsBuilder {
+  typedef HashtableImportOptions Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  explicit HashtableImportOptionsBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<HashtableImportOptions> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<HashtableImportOptions>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<HashtableImportOptions> CreateHashtableImportOptions(
+    flatbuffers::FlatBufferBuilder &_fbb) {
+  HashtableImportOptionsBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+struct HashtableSizeOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef HashtableSizeOptionsBuilder Builder;
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+};
+
+struct HashtableSizeOptionsBuilder {
+  typedef HashtableSizeOptions Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  explicit HashtableSizeOptionsBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<HashtableSizeOptions> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<HashtableSizeOptions>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<HashtableSizeOptions> CreateHashtableSizeOptions(
+    flatbuffers::FlatBufferBuilder &_fbb) {
+  HashtableSizeOptionsBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+struct VarHandleOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef VarHandleOptionsBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_CONTAINER = 4,
+    VT_SHARED_NAME = 6
+  };
+  const flatbuffers::String *container() const {
+    return GetPointer<const flatbuffers::String *>(VT_CONTAINER);
+  }
+  const flatbuffers::String *shared_name() const {
+    return GetPointer<const flatbuffers::String *>(VT_SHARED_NAME);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_CONTAINER) &&
+           verifier.VerifyString(container()) &&
+           VerifyOffset(verifier, VT_SHARED_NAME) &&
+           verifier.VerifyString(shared_name()) &&
+           verifier.EndTable();
+  }
+};
+
+struct VarHandleOptionsBuilder {
+  typedef VarHandleOptions Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_container(flatbuffers::Offset<flatbuffers::String> container) {
+    fbb_.AddOffset(VarHandleOptions::VT_CONTAINER, container);
+  }
+  void add_shared_name(flatbuffers::Offset<flatbuffers::String> shared_name) {
+    fbb_.AddOffset(VarHandleOptions::VT_SHARED_NAME, shared_name);
+  }
+  explicit VarHandleOptionsBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<VarHandleOptions> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<VarHandleOptions>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<VarHandleOptions> CreateVarHandleOptions(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::String> container = 0,
+    flatbuffers::Offset<flatbuffers::String> shared_name = 0) {
+  VarHandleOptionsBuilder builder_(_fbb);
+  builder_.add_shared_name(shared_name);
+  builder_.add_container(container);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<VarHandleOptions> CreateVarHandleOptionsDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const char *container = nullptr,
+    const char *shared_name = nullptr) {
+  auto container__ = container ? _fbb.CreateString(container) : 0;
+  auto shared_name__ = shared_name ? _fbb.CreateString(shared_name) : 0;
+  return tflite::CreateVarHandleOptions(
+      _fbb,
+      container__,
+      shared_name__);
+}
+
+struct ReadVariableOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef ReadVariableOptionsBuilder Builder;
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+};
+
+struct ReadVariableOptionsBuilder {
+  typedef ReadVariableOptions Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  explicit ReadVariableOptionsBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<ReadVariableOptions> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<ReadVariableOptions>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<ReadVariableOptions> CreateReadVariableOptions(
+    flatbuffers::FlatBufferBuilder &_fbb) {
+  ReadVariableOptionsBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+struct AssignVariableOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef AssignVariableOptionsBuilder Builder;
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+};
+
+struct AssignVariableOptionsBuilder {
+  typedef AssignVariableOptions Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  explicit AssignVariableOptionsBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<AssignVariableOptions> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<AssignVariableOptions>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<AssignVariableOptions> CreateAssignVariableOptions(
+    flatbuffers::FlatBufferBuilder &_fbb) {
+  AssignVariableOptionsBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+struct RandomOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef RandomOptionsBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_SEED = 4,
+    VT_SEED2 = 6
+  };
+  int64_t seed() const {
+    return GetField<int64_t>(VT_SEED, 0);
+  }
+  int64_t seed2() const {
+    return GetField<int64_t>(VT_SEED2, 0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int64_t>(verifier, VT_SEED, 8) &&
+           VerifyField<int64_t>(verifier, VT_SEED2, 8) &&
+           verifier.EndTable();
+  }
+};
+
+struct RandomOptionsBuilder {
+  typedef RandomOptions Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_seed(int64_t seed) {
+    fbb_.AddElement<int64_t>(RandomOptions::VT_SEED, seed, 0);
+  }
+  void add_seed2(int64_t seed2) {
+    fbb_.AddElement<int64_t>(RandomOptions::VT_SEED2, seed2, 0);
+  }
+  explicit RandomOptionsBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<RandomOptions> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<RandomOptions>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<RandomOptions> CreateRandomOptions(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t seed = 0,
+    int64_t seed2 = 0) {
+  RandomOptionsBuilder builder_(_fbb);
+  builder_.add_seed2(seed2);
+  builder_.add_seed(seed);
+  return builder_.Finish();
+}
+
+struct BucketizeOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef BucketizeOptionsBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_BOUNDARIES = 4
+  };
+  const flatbuffers::Vector<float> *boundaries() const {
+    return GetPointer<const flatbuffers::Vector<float> *>(VT_BOUNDARIES);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_BOUNDARIES) &&
+           verifier.VerifyVector(boundaries()) &&
+           verifier.EndTable();
+  }
+};
+
+struct BucketizeOptionsBuilder {
+  typedef BucketizeOptions Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_boundaries(flatbuffers::Offset<flatbuffers::Vector<float>> boundaries) {
+    fbb_.AddOffset(BucketizeOptions::VT_BOUNDARIES, boundaries);
+  }
+  explicit BucketizeOptionsBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<BucketizeOptions> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<BucketizeOptions>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<BucketizeOptions> CreateBucketizeOptions(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::Vector<float>> boundaries = 0) {
+  BucketizeOptionsBuilder builder_(_fbb);
+  builder_.add_boundaries(boundaries);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<BucketizeOptions> CreateBucketizeOptionsDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<float> *boundaries = nullptr) {
+  auto boundaries__ = boundaries ? _fbb.CreateVector<float>(*boundaries) : 0;
+  return tflite::CreateBucketizeOptions(
+      _fbb,
+      boundaries__);
+}
+
+struct GeluOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef GeluOptionsBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_APPROXIMATE = 4
+  };
+  bool approximate() const {
+    return GetField<uint8_t>(VT_APPROXIMATE, 0) != 0;
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_APPROXIMATE, 1) &&
+           verifier.EndTable();
+  }
+};
+
+struct GeluOptionsBuilder {
+  typedef GeluOptions Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_approximate(bool approximate) {
+    fbb_.AddElement<uint8_t>(GeluOptions::VT_APPROXIMATE, static_cast<uint8_t>(approximate), 0);
+  }
+  explicit GeluOptionsBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<GeluOptions> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<GeluOptions>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<GeluOptions> CreateGeluOptions(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    bool approximate = false) {
+  GeluOptionsBuilder builder_(_fbb);
+  builder_.add_approximate(approximate);
   return builder_.Finish();
 }
 
 struct OperatorCode FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef OperatorCodeBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_BUILTIN_CODE = 4,
+    VT_DEPRECATED_BUILTIN_CODE = 4,
     VT_CUSTOM_CODE = 6,
-    VT_VERSION = 8
+    VT_VERSION = 8,
+    VT_BUILTIN_CODE = 10
   };
-  tflite::BuiltinOperator builtin_code() const {
-    return static_cast<tflite::BuiltinOperator>(GetField<int8_t>(VT_BUILTIN_CODE, 0));
+  int8_t deprecated_builtin_code() const {
+    return GetField<int8_t>(VT_DEPRECATED_BUILTIN_CODE, 0);
   }
   const flatbuffers::String *custom_code() const {
     return GetPointer<const flatbuffers::String *>(VT_CUSTOM_CODE);
@@ -6928,12 +7864,16 @@ struct OperatorCode FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   int32_t version() const {
     return GetField<int32_t>(VT_VERSION, 1);
   }
+  tflite::BuiltinOperator builtin_code() const {
+    return static_cast<tflite::BuiltinOperator>(GetField<int32_t>(VT_BUILTIN_CODE, 0));
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_BUILTIN_CODE) &&
+           VerifyField<int8_t>(verifier, VT_DEPRECATED_BUILTIN_CODE, 1) &&
            VerifyOffset(verifier, VT_CUSTOM_CODE) &&
            verifier.VerifyString(custom_code()) &&
-           VerifyField<int32_t>(verifier, VT_VERSION) &&
+           VerifyField<int32_t>(verifier, VT_VERSION, 4) &&
+           VerifyField<int32_t>(verifier, VT_BUILTIN_CODE, 4) &&
            verifier.EndTable();
   }
 };
@@ -6942,14 +7882,17 @@ struct OperatorCodeBuilder {
   typedef OperatorCode Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_builtin_code(tflite::BuiltinOperator builtin_code) {
-    fbb_.AddElement<int8_t>(OperatorCode::VT_BUILTIN_CODE, static_cast<int8_t>(builtin_code), 0);
+  void add_deprecated_builtin_code(int8_t deprecated_builtin_code) {
+    fbb_.AddElement<int8_t>(OperatorCode::VT_DEPRECATED_BUILTIN_CODE, deprecated_builtin_code, 0);
   }
   void add_custom_code(flatbuffers::Offset<flatbuffers::String> custom_code) {
     fbb_.AddOffset(OperatorCode::VT_CUSTOM_CODE, custom_code);
   }
   void add_version(int32_t version) {
     fbb_.AddElement<int32_t>(OperatorCode::VT_VERSION, version, 1);
+  }
+  void add_builtin_code(tflite::BuiltinOperator builtin_code) {
+    fbb_.AddElement<int32_t>(OperatorCode::VT_BUILTIN_CODE, static_cast<int32_t>(builtin_code), 0);
   }
   explicit OperatorCodeBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -6964,27 +7907,31 @@ struct OperatorCodeBuilder {
 
 inline flatbuffers::Offset<OperatorCode> CreateOperatorCode(
     flatbuffers::FlatBufferBuilder &_fbb,
-    tflite::BuiltinOperator builtin_code = tflite::BuiltinOperator_ADD,
+    int8_t deprecated_builtin_code = 0,
     flatbuffers::Offset<flatbuffers::String> custom_code = 0,
-    int32_t version = 1) {
+    int32_t version = 1,
+    tflite::BuiltinOperator builtin_code = tflite::BuiltinOperator_ADD) {
   OperatorCodeBuilder builder_(_fbb);
+  builder_.add_builtin_code(builtin_code);
   builder_.add_version(version);
   builder_.add_custom_code(custom_code);
-  builder_.add_builtin_code(builtin_code);
+  builder_.add_deprecated_builtin_code(deprecated_builtin_code);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<OperatorCode> CreateOperatorCodeDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    tflite::BuiltinOperator builtin_code = tflite::BuiltinOperator_ADD,
+    int8_t deprecated_builtin_code = 0,
     const char *custom_code = nullptr,
-    int32_t version = 1) {
+    int32_t version = 1,
+    tflite::BuiltinOperator builtin_code = tflite::BuiltinOperator_ADD) {
   auto custom_code__ = custom_code ? _fbb.CreateString(custom_code) : 0;
   return tflite::CreateOperatorCode(
       _fbb,
-      builtin_code,
+      deprecated_builtin_code,
       custom_code__,
-      version);
+      version,
+      builtin_code);
 }
 
 struct Operator FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
@@ -7319,6 +8266,51 @@ struct Operator FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const tflite::BatchMatMulOptions *builtin_options_as_BatchMatMulOptions() const {
     return builtin_options_type() == tflite::BuiltinOptions_BatchMatMulOptions ? static_cast<const tflite::BatchMatMulOptions *>(builtin_options()) : nullptr;
   }
+  const tflite::CumsumOptions *builtin_options_as_CumsumOptions() const {
+    return builtin_options_type() == tflite::BuiltinOptions_CumsumOptions ? static_cast<const tflite::CumsumOptions *>(builtin_options()) : nullptr;
+  }
+  const tflite::CallOnceOptions *builtin_options_as_CallOnceOptions() const {
+    return builtin_options_type() == tflite::BuiltinOptions_CallOnceOptions ? static_cast<const tflite::CallOnceOptions *>(builtin_options()) : nullptr;
+  }
+  const tflite::BroadcastToOptions *builtin_options_as_BroadcastToOptions() const {
+    return builtin_options_type() == tflite::BuiltinOptions_BroadcastToOptions ? static_cast<const tflite::BroadcastToOptions *>(builtin_options()) : nullptr;
+  }
+  const tflite::Rfft2dOptions *builtin_options_as_Rfft2dOptions() const {
+    return builtin_options_type() == tflite::BuiltinOptions_Rfft2dOptions ? static_cast<const tflite::Rfft2dOptions *>(builtin_options()) : nullptr;
+  }
+  const tflite::Conv3DOptions *builtin_options_as_Conv3DOptions() const {
+    return builtin_options_type() == tflite::BuiltinOptions_Conv3DOptions ? static_cast<const tflite::Conv3DOptions *>(builtin_options()) : nullptr;
+  }
+  const tflite::HashtableOptions *builtin_options_as_HashtableOptions() const {
+    return builtin_options_type() == tflite::BuiltinOptions_HashtableOptions ? static_cast<const tflite::HashtableOptions *>(builtin_options()) : nullptr;
+  }
+  const tflite::HashtableFindOptions *builtin_options_as_HashtableFindOptions() const {
+    return builtin_options_type() == tflite::BuiltinOptions_HashtableFindOptions ? static_cast<const tflite::HashtableFindOptions *>(builtin_options()) : nullptr;
+  }
+  const tflite::HashtableImportOptions *builtin_options_as_HashtableImportOptions() const {
+    return builtin_options_type() == tflite::BuiltinOptions_HashtableImportOptions ? static_cast<const tflite::HashtableImportOptions *>(builtin_options()) : nullptr;
+  }
+  const tflite::HashtableSizeOptions *builtin_options_as_HashtableSizeOptions() const {
+    return builtin_options_type() == tflite::BuiltinOptions_HashtableSizeOptions ? static_cast<const tflite::HashtableSizeOptions *>(builtin_options()) : nullptr;
+  }
+  const tflite::VarHandleOptions *builtin_options_as_VarHandleOptions() const {
+    return builtin_options_type() == tflite::BuiltinOptions_VarHandleOptions ? static_cast<const tflite::VarHandleOptions *>(builtin_options()) : nullptr;
+  }
+  const tflite::ReadVariableOptions *builtin_options_as_ReadVariableOptions() const {
+    return builtin_options_type() == tflite::BuiltinOptions_ReadVariableOptions ? static_cast<const tflite::ReadVariableOptions *>(builtin_options()) : nullptr;
+  }
+  const tflite::AssignVariableOptions *builtin_options_as_AssignVariableOptions() const {
+    return builtin_options_type() == tflite::BuiltinOptions_AssignVariableOptions ? static_cast<const tflite::AssignVariableOptions *>(builtin_options()) : nullptr;
+  }
+  const tflite::RandomOptions *builtin_options_as_RandomOptions() const {
+    return builtin_options_type() == tflite::BuiltinOptions_RandomOptions ? static_cast<const tflite::RandomOptions *>(builtin_options()) : nullptr;
+  }
+  const tflite::BucketizeOptions *builtin_options_as_BucketizeOptions() const {
+    return builtin_options_type() == tflite::BuiltinOptions_BucketizeOptions ? static_cast<const tflite::BucketizeOptions *>(builtin_options()) : nullptr;
+  }
+  const tflite::GeluOptions *builtin_options_as_GeluOptions() const {
+    return builtin_options_type() == tflite::BuiltinOptions_GeluOptions ? static_cast<const tflite::GeluOptions *>(builtin_options()) : nullptr;
+  }
   const flatbuffers::Vector<uint8_t> *custom_options() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_CUSTOM_OPTIONS);
   }
@@ -7333,17 +8325,17 @@ struct Operator FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint32_t>(verifier, VT_OPCODE_INDEX) &&
+           VerifyField<uint32_t>(verifier, VT_OPCODE_INDEX, 4) &&
            VerifyOffset(verifier, VT_INPUTS) &&
            verifier.VerifyVector(inputs()) &&
            VerifyOffset(verifier, VT_OUTPUTS) &&
            verifier.VerifyVector(outputs()) &&
-           VerifyField<uint8_t>(verifier, VT_BUILTIN_OPTIONS_TYPE) &&
+           VerifyField<uint8_t>(verifier, VT_BUILTIN_OPTIONS_TYPE, 1) &&
            VerifyOffset(verifier, VT_BUILTIN_OPTIONS) &&
            VerifyBuiltinOptions(verifier, builtin_options(), builtin_options_type()) &&
            VerifyOffset(verifier, VT_CUSTOM_OPTIONS) &&
            verifier.VerifyVector(custom_options()) &&
-           VerifyField<int8_t>(verifier, VT_CUSTOM_OPTIONS_FORMAT) &&
+           VerifyField<int8_t>(verifier, VT_CUSTOM_OPTIONS_FORMAT, 1) &&
            VerifyOffset(verifier, VT_MUTATING_VARIABLE_INPUTS) &&
            verifier.VerifyVector(mutating_variable_inputs()) &&
            VerifyOffset(verifier, VT_INTERMEDIATES) &&
@@ -7756,6 +8748,66 @@ template<> inline const tflite::BatchMatMulOptions *Operator::builtin_options_as
   return builtin_options_as_BatchMatMulOptions();
 }
 
+template<> inline const tflite::CumsumOptions *Operator::builtin_options_as<tflite::CumsumOptions>() const {
+  return builtin_options_as_CumsumOptions();
+}
+
+template<> inline const tflite::CallOnceOptions *Operator::builtin_options_as<tflite::CallOnceOptions>() const {
+  return builtin_options_as_CallOnceOptions();
+}
+
+template<> inline const tflite::BroadcastToOptions *Operator::builtin_options_as<tflite::BroadcastToOptions>() const {
+  return builtin_options_as_BroadcastToOptions();
+}
+
+template<> inline const tflite::Rfft2dOptions *Operator::builtin_options_as<tflite::Rfft2dOptions>() const {
+  return builtin_options_as_Rfft2dOptions();
+}
+
+template<> inline const tflite::Conv3DOptions *Operator::builtin_options_as<tflite::Conv3DOptions>() const {
+  return builtin_options_as_Conv3DOptions();
+}
+
+template<> inline const tflite::HashtableOptions *Operator::builtin_options_as<tflite::HashtableOptions>() const {
+  return builtin_options_as_HashtableOptions();
+}
+
+template<> inline const tflite::HashtableFindOptions *Operator::builtin_options_as<tflite::HashtableFindOptions>() const {
+  return builtin_options_as_HashtableFindOptions();
+}
+
+template<> inline const tflite::HashtableImportOptions *Operator::builtin_options_as<tflite::HashtableImportOptions>() const {
+  return builtin_options_as_HashtableImportOptions();
+}
+
+template<> inline const tflite::HashtableSizeOptions *Operator::builtin_options_as<tflite::HashtableSizeOptions>() const {
+  return builtin_options_as_HashtableSizeOptions();
+}
+
+template<> inline const tflite::VarHandleOptions *Operator::builtin_options_as<tflite::VarHandleOptions>() const {
+  return builtin_options_as_VarHandleOptions();
+}
+
+template<> inline const tflite::ReadVariableOptions *Operator::builtin_options_as<tflite::ReadVariableOptions>() const {
+  return builtin_options_as_ReadVariableOptions();
+}
+
+template<> inline const tflite::AssignVariableOptions *Operator::builtin_options_as<tflite::AssignVariableOptions>() const {
+  return builtin_options_as_AssignVariableOptions();
+}
+
+template<> inline const tflite::RandomOptions *Operator::builtin_options_as<tflite::RandomOptions>() const {
+  return builtin_options_as_RandomOptions();
+}
+
+template<> inline const tflite::BucketizeOptions *Operator::builtin_options_as<tflite::BucketizeOptions>() const {
+  return builtin_options_as_BucketizeOptions();
+}
+
+template<> inline const tflite::GeluOptions *Operator::builtin_options_as<tflite::GeluOptions>() const {
+  return builtin_options_as_GeluOptions();
+}
+
 struct OperatorBuilder {
   typedef Operator Table;
   flatbuffers::FlatBufferBuilder &fbb_;
@@ -8028,7 +9080,7 @@ struct Metadata FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_NAME) &&
            verifier.VerifyString(name()) &&
-           VerifyField<uint32_t>(verifier, VT_BUFFER) &&
+           VerifyField<uint32_t>(verifier, VT_BUFFER, 4) &&
            verifier.EndTable();
   }
 };
@@ -8075,6 +9127,162 @@ inline flatbuffers::Offset<Metadata> CreateMetadataDirect(
       buffer);
 }
 
+struct TensorMap FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef TensorMapBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_NAME = 4,
+    VT_TENSOR_INDEX = 6
+  };
+  const flatbuffers::String *name() const {
+    return GetPointer<const flatbuffers::String *>(VT_NAME);
+  }
+  uint32_t tensor_index() const {
+    return GetField<uint32_t>(VT_TENSOR_INDEX, 0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
+           VerifyField<uint32_t>(verifier, VT_TENSOR_INDEX, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct TensorMapBuilder {
+  typedef TensorMap Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_name(flatbuffers::Offset<flatbuffers::String> name) {
+    fbb_.AddOffset(TensorMap::VT_NAME, name);
+  }
+  void add_tensor_index(uint32_t tensor_index) {
+    fbb_.AddElement<uint32_t>(TensorMap::VT_TENSOR_INDEX, tensor_index, 0);
+  }
+  explicit TensorMapBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<TensorMap> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<TensorMap>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<TensorMap> CreateTensorMap(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::String> name = 0,
+    uint32_t tensor_index = 0) {
+  TensorMapBuilder builder_(_fbb);
+  builder_.add_tensor_index(tensor_index);
+  builder_.add_name(name);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<TensorMap> CreateTensorMapDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const char *name = nullptr,
+    uint32_t tensor_index = 0) {
+  auto name__ = name ? _fbb.CreateString(name) : 0;
+  return tflite::CreateTensorMap(
+      _fbb,
+      name__,
+      tensor_index);
+}
+
+struct SignatureDef FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SignatureDefBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_INPUTS = 4,
+    VT_OUTPUTS = 6,
+    VT_SIGNATURE_KEY = 8,
+    VT_SUBGRAPH_INDEX = 12
+  };
+  const flatbuffers::Vector<flatbuffers::Offset<tflite::TensorMap>> *inputs() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<tflite::TensorMap>> *>(VT_INPUTS);
+  }
+  const flatbuffers::Vector<flatbuffers::Offset<tflite::TensorMap>> *outputs() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<tflite::TensorMap>> *>(VT_OUTPUTS);
+  }
+  const flatbuffers::String *signature_key() const {
+    return GetPointer<const flatbuffers::String *>(VT_SIGNATURE_KEY);
+  }
+  uint32_t subgraph_index() const {
+    return GetField<uint32_t>(VT_SUBGRAPH_INDEX, 0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_INPUTS) &&
+           verifier.VerifyVector(inputs()) &&
+           verifier.VerifyVectorOfTables(inputs()) &&
+           VerifyOffset(verifier, VT_OUTPUTS) &&
+           verifier.VerifyVector(outputs()) &&
+           verifier.VerifyVectorOfTables(outputs()) &&
+           VerifyOffset(verifier, VT_SIGNATURE_KEY) &&
+           verifier.VerifyString(signature_key()) &&
+           VerifyField<uint32_t>(verifier, VT_SUBGRAPH_INDEX, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct SignatureDefBuilder {
+  typedef SignatureDef Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_inputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<tflite::TensorMap>>> inputs) {
+    fbb_.AddOffset(SignatureDef::VT_INPUTS, inputs);
+  }
+  void add_outputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<tflite::TensorMap>>> outputs) {
+    fbb_.AddOffset(SignatureDef::VT_OUTPUTS, outputs);
+  }
+  void add_signature_key(flatbuffers::Offset<flatbuffers::String> signature_key) {
+    fbb_.AddOffset(SignatureDef::VT_SIGNATURE_KEY, signature_key);
+  }
+  void add_subgraph_index(uint32_t subgraph_index) {
+    fbb_.AddElement<uint32_t>(SignatureDef::VT_SUBGRAPH_INDEX, subgraph_index, 0);
+  }
+  explicit SignatureDefBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<SignatureDef> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<SignatureDef>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<SignatureDef> CreateSignatureDef(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<tflite::TensorMap>>> inputs = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<tflite::TensorMap>>> outputs = 0,
+    flatbuffers::Offset<flatbuffers::String> signature_key = 0,
+    uint32_t subgraph_index = 0) {
+  SignatureDefBuilder builder_(_fbb);
+  builder_.add_subgraph_index(subgraph_index);
+  builder_.add_signature_key(signature_key);
+  builder_.add_outputs(outputs);
+  builder_.add_inputs(inputs);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<SignatureDef> CreateSignatureDefDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<flatbuffers::Offset<tflite::TensorMap>> *inputs = nullptr,
+    const std::vector<flatbuffers::Offset<tflite::TensorMap>> *outputs = nullptr,
+    const char *signature_key = nullptr,
+    uint32_t subgraph_index = 0) {
+  auto inputs__ = inputs ? _fbb.CreateVector<flatbuffers::Offset<tflite::TensorMap>>(*inputs) : 0;
+  auto outputs__ = outputs ? _fbb.CreateVector<flatbuffers::Offset<tflite::TensorMap>>(*outputs) : 0;
+  auto signature_key__ = signature_key ? _fbb.CreateString(signature_key) : 0;
+  return tflite::CreateSignatureDef(
+      _fbb,
+      inputs__,
+      outputs__,
+      signature_key__,
+      subgraph_index);
+}
+
 struct Model FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef ModelBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -8084,7 +9292,8 @@ struct Model FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_DESCRIPTION = 10,
     VT_BUFFERS = 12,
     VT_METADATA_BUFFER = 14,
-    VT_METADATA = 16
+    VT_METADATA = 16,
+    VT_SIGNATURE_DEFS = 18
   };
   uint32_t version() const {
     return GetField<uint32_t>(VT_VERSION, 0);
@@ -8107,9 +9316,12 @@ struct Model FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const flatbuffers::Vector<flatbuffers::Offset<tflite::Metadata>> *metadata() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<tflite::Metadata>> *>(VT_METADATA);
   }
+  const flatbuffers::Vector<flatbuffers::Offset<tflite::SignatureDef>> *signature_defs() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<tflite::SignatureDef>> *>(VT_SIGNATURE_DEFS);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint32_t>(verifier, VT_VERSION) &&
+           VerifyField<uint32_t>(verifier, VT_VERSION, 4) &&
            VerifyOffset(verifier, VT_OPERATOR_CODES) &&
            verifier.VerifyVector(operator_codes()) &&
            verifier.VerifyVectorOfTables(operator_codes()) &&
@@ -8126,6 +9338,9 @@ struct Model FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyOffset(verifier, VT_METADATA) &&
            verifier.VerifyVector(metadata()) &&
            verifier.VerifyVectorOfTables(metadata()) &&
+           VerifyOffset(verifier, VT_SIGNATURE_DEFS) &&
+           verifier.VerifyVector(signature_defs()) &&
+           verifier.VerifyVectorOfTables(signature_defs()) &&
            verifier.EndTable();
   }
 };
@@ -8155,6 +9370,9 @@ struct ModelBuilder {
   void add_metadata(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<tflite::Metadata>>> metadata) {
     fbb_.AddOffset(Model::VT_METADATA, metadata);
   }
+  void add_signature_defs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<tflite::SignatureDef>>> signature_defs) {
+    fbb_.AddOffset(Model::VT_SIGNATURE_DEFS, signature_defs);
+  }
   explicit ModelBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -8174,8 +9392,10 @@ inline flatbuffers::Offset<Model> CreateModel(
     flatbuffers::Offset<flatbuffers::String> description = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<tflite::Buffer>>> buffers = 0,
     flatbuffers::Offset<flatbuffers::Vector<int32_t>> metadata_buffer = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<tflite::Metadata>>> metadata = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<tflite::Metadata>>> metadata = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<tflite::SignatureDef>>> signature_defs = 0) {
   ModelBuilder builder_(_fbb);
+  builder_.add_signature_defs(signature_defs);
   builder_.add_metadata(metadata);
   builder_.add_metadata_buffer(metadata_buffer);
   builder_.add_buffers(buffers);
@@ -8194,13 +9414,15 @@ inline flatbuffers::Offset<Model> CreateModelDirect(
     const char *description = nullptr,
     const std::vector<flatbuffers::Offset<tflite::Buffer>> *buffers = nullptr,
     const std::vector<int32_t> *metadata_buffer = nullptr,
-    const std::vector<flatbuffers::Offset<tflite::Metadata>> *metadata = nullptr) {
+    const std::vector<flatbuffers::Offset<tflite::Metadata>> *metadata = nullptr,
+    const std::vector<flatbuffers::Offset<tflite::SignatureDef>> *signature_defs = nullptr) {
   auto operator_codes__ = operator_codes ? _fbb.CreateVector<flatbuffers::Offset<tflite::OperatorCode>>(*operator_codes) : 0;
   auto subgraphs__ = subgraphs ? _fbb.CreateVector<flatbuffers::Offset<tflite::SubGraph>>(*subgraphs) : 0;
   auto description__ = description ? _fbb.CreateString(description) : 0;
   auto buffers__ = buffers ? _fbb.CreateVector<flatbuffers::Offset<tflite::Buffer>>(*buffers) : 0;
   auto metadata_buffer__ = metadata_buffer ? _fbb.CreateVector<int32_t>(*metadata_buffer) : 0;
   auto metadata__ = metadata ? _fbb.CreateVector<flatbuffers::Offset<tflite::Metadata>>(*metadata) : 0;
+  auto signature_defs__ = signature_defs ? _fbb.CreateVector<flatbuffers::Offset<tflite::SignatureDef>>(*signature_defs) : 0;
   return tflite::CreateModel(
       _fbb,
       version,
@@ -8209,7 +9431,8 @@ inline flatbuffers::Offset<Model> CreateModelDirect(
       description__,
       buffers__,
       metadata_buffer__,
-      metadata__);
+      metadata__,
+      signature_defs__);
 }
 
 inline bool VerifyQuantizationDetails(flatbuffers::Verifier &verifier, const void *obj, QuantizationDetails type) {
@@ -8677,6 +9900,66 @@ inline bool VerifyBuiltinOptions(flatbuffers::Verifier &verifier, const void *ob
     }
     case BuiltinOptions_BatchMatMulOptions: {
       auto ptr = reinterpret_cast<const tflite::BatchMatMulOptions *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case BuiltinOptions_CumsumOptions: {
+      auto ptr = reinterpret_cast<const tflite::CumsumOptions *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case BuiltinOptions_CallOnceOptions: {
+      auto ptr = reinterpret_cast<const tflite::CallOnceOptions *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case BuiltinOptions_BroadcastToOptions: {
+      auto ptr = reinterpret_cast<const tflite::BroadcastToOptions *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case BuiltinOptions_Rfft2dOptions: {
+      auto ptr = reinterpret_cast<const tflite::Rfft2dOptions *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case BuiltinOptions_Conv3DOptions: {
+      auto ptr = reinterpret_cast<const tflite::Conv3DOptions *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case BuiltinOptions_HashtableOptions: {
+      auto ptr = reinterpret_cast<const tflite::HashtableOptions *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case BuiltinOptions_HashtableFindOptions: {
+      auto ptr = reinterpret_cast<const tflite::HashtableFindOptions *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case BuiltinOptions_HashtableImportOptions: {
+      auto ptr = reinterpret_cast<const tflite::HashtableImportOptions *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case BuiltinOptions_HashtableSizeOptions: {
+      auto ptr = reinterpret_cast<const tflite::HashtableSizeOptions *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case BuiltinOptions_VarHandleOptions: {
+      auto ptr = reinterpret_cast<const tflite::VarHandleOptions *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case BuiltinOptions_ReadVariableOptions: {
+      auto ptr = reinterpret_cast<const tflite::ReadVariableOptions *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case BuiltinOptions_AssignVariableOptions: {
+      auto ptr = reinterpret_cast<const tflite::AssignVariableOptions *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case BuiltinOptions_RandomOptions: {
+      auto ptr = reinterpret_cast<const tflite::RandomOptions *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case BuiltinOptions_BucketizeOptions: {
+      auto ptr = reinterpret_cast<const tflite::BucketizeOptions *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case BuiltinOptions_GeluOptions: {
+      auto ptr = reinterpret_cast<const tflite::GeluOptions *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;
