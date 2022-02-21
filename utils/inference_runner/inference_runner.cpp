@@ -141,6 +141,7 @@ int main(int argc, char *argv[]) {
     list<string> ifmArg;
     vector<uint8_t> enabledCounters(Inference::getMaxPmuEventCounters());
     string ofmArg;
+    string devArg = "/dev/ethosu239";
     int64_t timeout         = defaultTimeout;
     bool print              = false;
     bool enableCycleCounter = false;
@@ -160,6 +161,9 @@ int main(int argc, char *argv[]) {
         } else if (arg == "--ofm" || arg == "-o") {
             rangeCheck(++i, argc, arg);
             ofmArg = argv[i];
+	} else if (arg == "--dev" || arg == "-d") {
+            rangeCheck(++i, argc, arg);
+            devArg = argv[i];
         } else if (arg == "--timeout" || arg == "-t") {
             rangeCheck(++i, argc, arg);
             timeout = stoll(argv[i]);
@@ -205,7 +209,7 @@ int main(int argc, char *argv[]) {
     }
 
     try {
-        Device device;
+        Device device(devArg.c_str());
 
         cout << "Send Ping" << endl;
         device.ioctl(ETHOSU_IOCTL_PING);
