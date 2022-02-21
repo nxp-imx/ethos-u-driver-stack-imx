@@ -91,15 +91,17 @@ shared_ptr<Inference> createInference(Device &device,
     size_t size = stream.tellg();
     stream.seekg(0, ios_base::beg);
 
+#if 0
     if (size != network->getIfmSize()) {
         cerr << "Error: IFM size does not match network size. filename=" << filename << ", size=" << size
              << ", network=" << network->getIfmSize() << endl;
         exit(1);
     }
+#endif
 
     // Create IFM buffers
     vector<shared_ptr<Buffer>> ifm;
-    for (auto size : network->getIfmDims()) {
+//    for (auto size : network->getIfmDims()) {
         shared_ptr<Buffer> buffer = make_shared<Buffer>(device, size);
         buffer->resize(size);
         stream.read(buffer->data(), size);
@@ -110,7 +112,7 @@ shared_ptr<Inference> createInference(Device &device,
         }
 
         ifm.push_back(buffer);
-    }
+//    }
 
     // Create OFM buffers
     vector<shared_ptr<Buffer>> ofm;
