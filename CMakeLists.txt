@@ -42,17 +42,17 @@ set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 include_directories("kernel")
 
 # Add sub directories
-if(BUILD_KERNEL)
-    add_subdirectory(kernel)
-endif()
+#if(BUILD_KERNEL)
+#    add_subdirectory(kernel)
+#endif()
 
-if (BUILD_MAILBOX)
-    add_subdirectory(mailbox)
-endif()
+#if (BUILD_MAILBOX)
+#    add_subdirectory(mailbox)
+#endif()
 
-if (BUILD_REMOTEPROC)
-    add_subdirectory(remoteproc)
-endif()
+#if (BUILD_REMOTEPROC)
+#    add_subdirectory(remoteproc)
+#endif()
 
 # Build flatbuffers
 unset(PROJECT_VERSION)
