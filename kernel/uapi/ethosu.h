@@ -1,5 +1,5 @@
 /*
- * (C) COPYRIGHT 2020 ARM Limited. All rights reserved.
+ * Copyright (c) 2020-2022 Arm Limited.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -97,11 +97,28 @@ struct ethosu_uapi_buffer {
 };
 
 /**
+ * enum ethosu_uapi_network_create - Network buffer type.
+ * @ETHOSU_UAPI_NETWORK_BUFFER:	Network is stored in a buffer handle.
+ * @ETHOSU_UAPI_NETWORK_INDEX:	Network is built into firmware and referenced by
+ *                              index.
+ */
+enum ethosu_uapi_network_type {
+	ETHOSU_UAPI_NETWORK_BUFFER = 1,
+	ETHOSU_UAPI_NETWORK_INDEX
+};
+
+/**
  * struct ethosu_uapi_network_create - Create network request
+ * @type:	Buffer type. See @ethosu_uapi_network_type.
  * @fd:		Buffer file descriptor
+ * @index:	Buffer index compiled into firmware binary.
  */
 struct ethosu_uapi_network_create {
-	__u32 fd;
+	uint32_t type;
+	union {
+		__u32 fd;
+		__u32 index;
+	};
 };
 
 /**

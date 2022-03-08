@@ -1,5 +1,5 @@
 /*
- * (C) COPYRIGHT 2020 ARM Limited. All rights reserved.
+ * Copyright (c) 2020, 2022 Arm Limited.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -69,7 +69,9 @@ static void ethosu_network_destroy(struct kref *kref)
 
 	dev_info(net->edev->dev, "Network destroy. handle=0x%pK\n", net);
 
-	ethosu_buffer_put(net->buf);
+	if (net->buf != NULL)
+		ethosu_buffer_put(net->buf);
+
 	devm_kfree(net->edev->dev, net);
 }
 
@@ -128,28 +130,31 @@ static long ethosu_network_ioctl(struct file *file,
 int ethosu_network_create(struct ethosu_device *edev,
 			  struct ethosu_uapi_network_create *uapi)
 {
-	struct ethosu_buffer *buf;
 	struct ethosu_network *net;
 	int ret = -ENOMEM;
 
-	buf = ethosu_buffer_get_from_fd(uapi->fd);
-	if (IS_ERR(buf))
-		return PTR_ERR(buf);
-
 	net = devm_kzalloc(edev->dev, sizeof(*net), GFP_KERNEL);
-	if (!net) {
-		ret = -ENOMEM;
-		goto put_buf;
-	}
+	if (!net)
+		return -ENOMEM;
 
 	net->edev = edev;
-	net->buf = buf;
+	net->buf = NULL;
 	kref_init(&net->kref);
+
+	if (uapi->type == ETHOSU_UAPI_NETWORK_BUFFER) {
+		net->buf = ethosu_buffer_get_from_fd(uapi->fd);
+		if (IS_ERR(net->buf)) {
+			ret = PTR_ERR(net->buf);
+			goto free_net;
+		}
+	} else {
+		net->index = uapi->index;
+	}
 
 	ret = anon_inode_getfd("ethosu-network", &ethosu_network_fops, net,
 			       O_RDWR | O_CLOEXEC);
 	if (ret < 0)
-		goto free_net;
+		goto put_buf;
 
 	net->file = fget(ret);
 	fput(net->file);
@@ -159,11 +164,12 @@ int ethosu_network_create(struct ethosu_device *edev,
 
 	return ret;
 
+put_buf:
+	if (net->buf != NULL)
+		ethosu_buffer_put(net->buf);
+
 free_net:
 	devm_kfree(edev->dev, net);
-
-put_buf:
-	ethosu_buffer_put(buf);
 
 	return ret;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021 Arm Limited. All rights reserved.
+ * Copyright (c) 2020-2022 Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -161,6 +161,7 @@ private:
 class Network {
 public:
     Network(const Device &device, std::shared_ptr<Buffer> &buffer);
+    Network(const Device &device, const std::string &model, const unsigned index);
     virtual ~Network();
 
     int ioctl(unsigned long cmd, void *data = nullptr);
@@ -171,6 +172,8 @@ public:
     size_t getOfmSize() const;
 
 private:
+    void parseModel(const char *data);
+
     int fd;
     std::shared_ptr<Buffer> buffer;
     std::vector<size_t> ifmDims;

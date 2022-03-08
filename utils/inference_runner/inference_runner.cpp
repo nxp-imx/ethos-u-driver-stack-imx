@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021 Arm Limited. All rights reserved.
+ * Copyright (c) 2020-2022 Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -39,6 +39,7 @@ void help(const string exe) {
     cerr << "Arguments:\n";
     cerr << "    -h --help       Print this help message.\n";
     cerr << "    -n --network    File to read network from.\n";
+    cerr << "       --index      Network model index, stored in firmware binary.\n";
     cerr << "    -i --ifm        File to read IFM from.\n";
     cerr << "    -o --ofm        File to write IFM to.\n";
     cerr << "    -P --pmu [0.." << Inference::getMaxPmuEventCounters() << "] eventid.\n";
@@ -138,6 +139,7 @@ ostream &operator<<(ostream &os, Buffer &buf) {
 int main(int argc, char *argv[]) {
     const string exe = argv[0];
     string networkArg;
+    int networkIndex = -1;
     list<string> ifmArg;
     vector<uint8_t> enabledCounters(Inference::getMaxPmuEventCounters());
     string ofmArg;
@@ -154,6 +156,9 @@ int main(int argc, char *argv[]) {
         } else if (arg == "--network" || arg == "-n") {
             rangeCheck(++i, argc, arg);
             networkArg = argv[i];
+        } else if (arg == "--index") {
+            rangeCheck(++i, argc, arg);
+            networkIndex = stoi(argv[i]);
         } else if (arg == "--ifm" || arg == "-i") {
             rangeCheck(++i, argc, arg);
             ifmArg.push_back(argv[i]);
@@ -228,8 +233,15 @@ int main(int argc, char *argv[]) {
 
         /* Create network */
         cout << "Create network" << endl;
-        shared_ptr<Buffer> networkBuffer = allocAndFill(device, networkArg);
-        shared_ptr<Network> network      = make_shared<Network>(device, networkBuffer);
+
+        shared_ptr<Network> network;
+
+        if (networkIndex < 0) {
+            shared_ptr<Buffer> networkBuffer = allocAndFill(device, networkArg);
+            network                          = make_shared<Network>(device, networkBuffer);
+        } else {
+            network = make_shared<Network>(device, networkArg, networkIndex);
+        }
 
         /* Create one inference per IFM */
         list<shared_ptr<Inference>> inferences;

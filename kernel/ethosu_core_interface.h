@@ -1,5 +1,5 @@
 /*
- * (C) COPYRIGHT 2020 ARM Limited. All rights reserved.
+ * Copyright (c) 2020-2022 Arm Limited.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -88,27 +88,61 @@ struct ethosu_core_queue {
 	uint8_t                         data[];
 };
 
+/**
+ * enum ethosu_core_status - Status
+ */
 enum ethosu_core_status {
 	ETHOSU_CORE_STATUS_OK,
 	ETHOSU_CORE_STATUS_ERROR
 };
 
+/**
+ * struct ethosu_core_buffer - Buffer descriptor
+ *
+ * Pointer and size to a buffer withing the Ethos-U
+ * address space.
+ */
 struct ethosu_core_buffer {
 	uint32_t ptr;
 	uint32_t size;
 };
 
-struct ethosu_core_inference_req {
-	uint64_t                  user_arg;
-	uint32_t                  ifm_count;
-	struct ethosu_core_buffer ifm[ETHOSU_CORE_BUFFER_MAX];
-	uint32_t                  ofm_count;
-	struct ethosu_core_buffer ofm[ETHOSU_CORE_BUFFER_MAX];
-	struct ethosu_core_buffer network;
-	uint8_t                   pmu_event_config[ETHOSU_CORE_PMU_MAX];
-	uint32_t                  pmu_cycle_counter_enable;
+/**
+ * enum ethosu_core_network_type - Network buffer type
+ */
+enum ethosu_core_network_type {
+	ETHOSU_CORE_NETWORK_BUFFER = 1,
+	ETHOSU_CORE_NETWORK_INDEX
 };
 
+/**
+ * struct ethosu_core_network_buffer - Network buffer
+ */
+struct ethosu_core_network_buffer {
+	uint32_t type;
+	union {
+		struct ethosu_core_buffer buffer;
+		uint32_t                  index;
+	};
+};
+
+/**
+ * struct ethosu_core_inference_req - Inference request
+ */
+struct ethosu_core_inference_req {
+	uint64_t                          user_arg;
+	uint32_t                          ifm_count;
+	struct ethosu_core_buffer         ifm[ETHOSU_CORE_BUFFER_MAX];
+	uint32_t                          ofm_count;
+	struct ethosu_core_buffer         ofm[ETHOSU_CORE_BUFFER_MAX];
+	struct ethosu_core_network_buffer network;
+	uint8_t                           pmu_event_config[ETHOSU_CORE_PMU_MAX];
+	uint32_t                          pmu_cycle_counter_enable;
+};
+
+/**
+ * struct ethosu_core_inference_rsp - Inference response
+ */
 struct ethosu_core_inference_rsp {
 	uint64_t user_arg;
 	uint32_t ofm_count;
@@ -121,7 +155,7 @@ struct ethosu_core_inference_rsp {
 };
 
 /**
- * struct ethosu_core_msg_verson - Message protocol version
+ * struct ethosu_core_msg_version - Message protocol version
  */
 struct ethosu_core_msg_version {
 	uint8_t major;

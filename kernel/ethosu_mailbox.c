@@ -1,5 +1,5 @@
 /*
- * (C) COPYRIGHT 2020 ARM Limited. All rights reserved.
+ * Copyright (c) 2020-2022 Arm Limited.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -234,6 +234,7 @@ int ethosu_mailbox_inference(struct ethosu_mailbox *mbox,
 			     uint32_t ofm_count,
 			     struct ethosu_buffer **ofm,
 			     struct ethosu_buffer *network,
+			     uint32_t network_index,
 			     uint8_t *pmu_event_config,
 			     uint8_t pmu_event_config_count,
 			     uint8_t pmu_cycle_counter_enable)
@@ -262,7 +263,13 @@ int ethosu_mailbox_inference(struct ethosu_mailbox *mbox,
 	for (i = 0; i < ETHOSU_CORE_PMU_MAX; i++)
 		inf.pmu_event_config[i] = pmu_event_config[i];
 
-	ethosu_core_set_size(network, &inf.network);
+	if (network != NULL) {
+		inf.network.type = ETHOSU_CORE_NETWORK_BUFFER;
+		ethosu_core_set_size(network, &inf.network.buffer);
+	} else {
+		inf.network.type = ETHOSU_CORE_NETWORK_INDEX;
+		inf.network.index = network_index;
+	}
 
 	return ethosu_queue_write_msg(mbox, ETHOSU_CORE_MSG_INFERENCE_REQ,
 				      &inf, sizeof(inf));

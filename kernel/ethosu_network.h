@@ -1,5 +1,5 @@
 /*
- * (C) COPYRIGHT 2020 ARM Limited. All rights reserved.
+ * Copyright (c) 2020, 2022 Arm Limited.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -43,6 +43,7 @@ struct ethosu_network {
 	struct file          *file;
 	struct kref          kref;
 	struct ethosu_buffer *buf;
+	uint32_t             index;
 };
 
 /****************************************************************************
