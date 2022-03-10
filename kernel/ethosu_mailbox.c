@@ -275,6 +275,27 @@ int ethosu_mailbox_inference(struct ethosu_mailbox *mbox,
 				      &inf, sizeof(inf));
 }
 
+int ethosu_mailbox_network_info_request(struct ethosu_mailbox *mbox,
+					void *user_arg,
+					struct ethosu_buffer *network,
+					uint32_t network_index)
+{
+	struct ethosu_core_network_info_req info;
+
+	info.user_arg = (ptrdiff_t)user_arg;
+
+	if (network != NULL) {
+		info.network.type = ETHOSU_CORE_NETWORK_BUFFER;
+		ethosu_core_set_size(network, &info.network.buffer);
+	} else {
+		info.network.type = ETHOSU_CORE_NETWORK_INDEX;
+		info.network.index = network_index;
+	}
+
+	return ethosu_queue_write_msg(mbox, ETHOSU_CORE_MSG_NETWORK_INFO_REQ,
+				      &info, sizeof(info));
+}
+
 static void ethosu_mailbox_rx_work(struct work_struct *work)
 {
 	struct ethosu_mailbox *mbox = container_of(work, typeof(*mbox), work);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022 Arm Limited. All rights reserved.
+ * Copyright (c) 2020-2022 Arm Limited.
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -305,7 +305,7 @@ Network::Network(const Device &device, shared_ptr<Buffer> &buffer) : fd(-1), buf
     }
 }
 
-Network::Network(const Device &device, const string &model, const unsigned index) : fd(-1) {
+Network::Network(const Device &device, const unsigned index) : fd(-1) {
     // Create buffer handle
     ethosu_uapi_network_create uapi;
     uapi.type  = ETHOSU_UAPI_NETWORK_INDEX;
@@ -313,22 +313,16 @@ Network::Network(const Device &device, const string &model, const unsigned index
     fd         = device.ioctl(ETHOSU_IOCTL_NETWORK_CREATE, static_cast<void *>(&uapi));
 
     try {
-        // Open file
-        ifstream ifs(model, std::ios::binary);
-        if (!ifs.is_open()) {
-            throw Exception("Failed to open model file.");
+        ethosu_uapi_network_info info;
+        ioctl(ETHOSU_IOCTL_NETWORK_INFO, static_cast<void *>(&info));
+
+        for (uint32_t i = 0; i < info.ifm_count; i++) {
+            ifmDims.push_back(info.ifm_size[i]);
         }
 
-        // Get file size
-        ifs.seekg(0, ios_base::end);
-        size_t size = ifs.tellg();
-        ifs.seekg(0, ios_base::beg);
-
-        // Read data into buffer
-        vector<char> buffer(size);
-        ifs.read(buffer.data(), size);
-
-        parseModel(buffer.data());
+        for (uint32_t i = 0; i < info.ofm_count; i++) {
+            ofmDims.push_back(info.ofm_size[i]);
+        }
     } catch (...) {
         eclose(fd);
         throw;

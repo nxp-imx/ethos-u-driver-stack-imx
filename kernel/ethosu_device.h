@@ -51,6 +51,7 @@ struct ethosu_device {
 	struct ethosu_mailbox mailbox;
 	struct list_head      capabilities_list;
 	struct list_head      inference_list;
+	struct list_head      network_info_list;
 };
 
 /**

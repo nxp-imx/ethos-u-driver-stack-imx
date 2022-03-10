@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, 2022 Arm Limited.
+ * Copyright (c) 2020,2022 Arm Limited.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software

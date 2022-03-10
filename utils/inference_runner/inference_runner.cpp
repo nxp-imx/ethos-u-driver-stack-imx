@@ -240,7 +240,7 @@ int main(int argc, char *argv[]) {
             shared_ptr<Buffer> networkBuffer = allocAndFill(device, networkArg);
             network                          = make_shared<Network>(device, networkBuffer);
         } else {
-            network = make_shared<Network>(device, networkArg, networkIndex);
+            network = make_shared<Network>(device, networkIndex);
         }
 
         /* Create one inference per IFM */

@@ -53,6 +53,8 @@ namespace EthosU {
 						   struct ethosu_uapi_buffer)
 #define ETHOSU_IOCTL_NETWORK_CREATE     ETHOSU_IOR(0x20, \
 						   struct ethosu_uapi_network_create)
+#define ETHOSU_IOCTL_NETWORK_INFO       ETHOSU_IOR(0x21, \
+						   struct ethosu_uapi_network_info)
 #define ETHOSU_IOCTL_INFERENCE_CREATE   ETHOSU_IOR(0x30, \
 						   struct ethosu_uapi_inference_create)
 #define ETHOSU_IOCTL_INFERENCE_STATUS   ETHOSU_IOR(0x31, \
@@ -119,6 +121,22 @@ struct ethosu_uapi_network_create {
 		__u32 fd;
 		__u32 index;
 	};
+};
+
+/**
+ * struct ethosu_uapi_network_info - Network info
+ * @desc:		Network description
+ * @ifm_count:		Number of IFM buffers
+ * @ifm_size:		IFM buffer sizes
+ * @ofm_count:		Number of OFM buffers
+ * @ofm_size:		OFM buffer sizes
+ */
+struct ethosu_uapi_network_info {
+	char  desc[32];
+	__u32 ifm_count;
+	__u32 ifm_size[ETHOSU_FD_MAX];
+	__u32 ofm_count;
+	__u32 ofm_size[ETHOSU_FD_MAX];
 };
 
 /**

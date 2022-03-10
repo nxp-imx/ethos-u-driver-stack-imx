@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, 2022 Arm Limited.
+ * Copyright (c) 2020,2022 Arm Limited.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -27,6 +27,7 @@
 #include "ethosu_buffer.h"
 #include "ethosu_device.h"
 #include "ethosu_inference.h"
+#include "ethosu_network_info.h"
 #include "uapi/ethosu.h"
 
 #include <linux/anon_inodes.h>
@@ -87,6 +88,27 @@ static int ethosu_network_release(struct inode *inode,
 	return 0;
 }
 
+static int ethosu_network_info_request(struct ethosu_network *net,
+				       struct ethosu_uapi_network_info *uapi)
+{
+	struct ethosu_network_info *info;
+	int ret;
+
+	/* Create network info request */
+	info = ethosu_network_info_create(net->edev, net, uapi);
+	if (IS_ERR(info))
+		return PTR_ERR(info);
+
+	/* Unlock the device mutex and wait for completion */
+	mutex_unlock(&net->edev->mutex);
+	ret = ethosu_network_info_wait(info, 3000);
+	mutex_lock(&net->edev->mutex);
+
+	ethosu_network_info_put(info);
+
+	return ret;
+}
+
 static long ethosu_network_ioctl(struct file *file,
 				 unsigned int cmd,
 				 unsigned long arg)
@@ -99,9 +121,26 @@ static long ethosu_network_ioctl(struct file *file,
 	if (ret)
 		return ret;
 
-	dev_info(net->edev->dev, "Ioctl: cmd=%u, arg=%lu\n", cmd, arg);
+	dev_info(net->edev->dev, "Ioctl: cmd=0x%x, arg=0x%lx\n", cmd, arg);
 
 	switch (cmd) {
+	case ETHOSU_IOCTL_NETWORK_INFO: {
+		struct ethosu_uapi_network_info uapi;
+
+		if (copy_from_user(&uapi, udata, sizeof(uapi)))
+			break;
+
+		dev_info(net->edev->dev,
+			 "Ioctl: Network info. handle=%p\n",
+			 net);
+
+		ret = ethosu_network_info_request(net, &uapi);
+		if (ret)
+			break;
+
+		ret = copy_to_user(udata, &uapi, sizeof(uapi)) ? -EFAULT : 0;
+		break;
+	}
 	case ETHOSU_IOCTL_INFERENCE_CREATE: {
 		struct ethosu_uapi_inference_create uapi;
 

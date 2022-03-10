@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020,2022 Arm Limited.
+ * Copyright (c) 2022 ARM Limited.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -18,32 +18,35 @@
  * SPDX-License-Identifier: GPL-2.0-only
  */
 
-#ifndef ETHOSU_NETWORK_H
-#define ETHOSU_NETWORK_H
+#ifndef ETHOSU_NETWORK_INFO_H
+#define ETHOSU_NETWORK_INFO_H
 
 /****************************************************************************
  * Includes
  ****************************************************************************/
 
+#include "ethosu_core_interface.h"
+
 #include <linux/kref.h>
 #include <linux/types.h>
+#include <linux/completion.h>
 
 /****************************************************************************
  * Types
  ****************************************************************************/
 
-struct ethosu_buffer;
 struct ethosu_device;
-struct ethosu_uapi_network_create;
-struct device;
-struct file;
+struct ethosu_network;
+struct ethosu_uapi_network_info;
 
-struct ethosu_network {
-	struct ethosu_device *edev;
-	struct file          *file;
-	struct kref          kref;
-	struct ethosu_buffer *buf;
-	uint32_t             index;
+struct ethosu_network_info {
+	struct ethosu_device            *edev;
+	struct ethosu_network           *net;
+	struct ethosu_uapi_network_info *uapi;
+	struct kref                     kref;
+	struct list_head                list;
+	struct completion               done;
+	int                             errno;
 };
 
 /****************************************************************************
@@ -51,32 +54,37 @@ struct ethosu_network {
  ****************************************************************************/
 
 /**
- * ethosu_network_create() - Create network
+ * ethosu_network_info_create() - Create network info
  *
  * This function must be called in the context of a user space process.
  *
- * Return: fd on success, else error code.
+ * Return: Valid pointer on success, else ERR_PTR.
  */
-int ethosu_network_create(struct ethosu_device *edev,
-			  struct ethosu_uapi_network_create *uapi);
+struct ethosu_network_info *ethosu_network_info_create(
+	struct ethosu_device *edev,
+	struct ethosu_network *net,
+	struct ethosu_uapi_network_info *uapi);
 
 /**
- * ethosu_network_get_from_fd() - Get network handle from fd
- *
- * This function must be called from a user space context.
- *
- * Return: Pointer on success, else ERR_PTR.
+ * ethosu_network_info_get() - Get network info
  */
-struct ethosu_network *ethosu_network_get_from_fd(int fd);
+void ethosu_network_info_get(struct ethosu_network_info *info);
 
 /**
- * ethosu_network_get() - Get network
+ * ethosu_network_info_put() - Put network info
  */
-void ethosu_network_get(struct ethosu_network *net);
+void ethosu_network_info_put(struct ethosu_network_info *info);
 
 /**
- * ethosu_network_put() - Put network
+ * ethosu_network_info_wait() - Get network info
  */
-void ethosu_network_put(struct ethosu_network *net);
+int ethosu_network_info_wait(struct ethosu_network_info *info,
+			     int timeout);
 
-#endif /* ETHOSU_NETWORK_H */
+/**
+ * ethosu_network_info_rsp() - Handle network info response.
+ */
+void ethosu_network_info_rsp(struct ethosu_device *edev,
+			     struct ethosu_core_network_info_rsp *rsp);
+
+#endif /* ETHOSU_NETWORK_INFO_H */

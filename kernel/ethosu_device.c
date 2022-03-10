@@ -28,6 +28,7 @@
 #include "ethosu_core_interface.h"
 #include "ethosu_inference.h"
 #include "ethosu_network.h"
+#include "ethosu_network_info.h"
 #include "uapi/ethosu.h"
 
 #include <linux/delay.h>
@@ -47,10 +48,6 @@
 #define DMA_ADDR_BITS 32 /* Number of address bits */
 
 #define CAPABILITIES_RESP_TIMEOUT_MS 2000
-
-/****************************************************************************
- * Types
- ****************************************************************************/
 
 /****************************************************************************
  * Functions
@@ -131,6 +128,7 @@ static int ethosu_handle_msg(struct ethosu_device *edev)
 		struct ethosu_core_inference_rsp        inf;
 		struct ethosu_core_msg_version          version;
 		struct ethosu_core_msg_capabilities_rsp capabilities;
+		struct ethosu_core_network_info_rsp     network_info;
 	} data;
 
 	/* Read message */
@@ -227,6 +225,23 @@ static int ethosu_handle_msg(struct ethosu_device *edev)
 
 		ret = ethosu_capability_rsp(edev, &data.capabilities);
 		break;
+	case ETHOSU_CORE_MSG_NETWORK_INFO_RSP:
+		if (header.length != sizeof(data.network_info)) {
+			dev_warn(edev->dev,
+				 "Msg: Network info response of incorrect size. size=%u, expected=%zu\n", header.length,
+				 sizeof(data.network_info));
+			ret = -EBADMSG;
+			break;
+		}
+
+		dev_info(edev->dev,
+			 "Msg: Network info response. user_arg=0x%llx, status=%u",
+			 data.network_info.user_arg,
+			 data.network_info.status);
+
+		ethosu_network_info_rsp(edev, &data.network_info);
+
+		break;
 	default:
 		/* This should not happen due to version checks */
 		dev_warn(edev->dev, "Msg: Protocol error\n");
@@ -282,18 +297,21 @@ static int ethosu_send_capabilities_request(struct ethosu_device *edev,
 	 * NOTE: if no response is received back, the memory is leaked.
 	 */
 	kref_get(&cap->refcount);
+
 	/* Unlock the mutex before going to block on the condition */
 	mutex_unlock(&edev->mutex);
+
 	/* wait for response to arrive back */
 	timeout = wait_for_completion_timeout(&cap->done,
 					      msecs_to_jiffies(
 						      CAPABILITIES_RESP_TIMEOUT_MS));
+
 	/* take back the mutex before resuming to do anything */
 	ret = mutex_lock_interruptible(&edev->mutex);
 	if (0 != ret)
 		goto put_kref;
 
-	if (0 == timeout /* timed out*/) {
+	if (0 == timeout) {
 		dev_warn(edev->dev,
 			 "Msg: Capabilities response lost - timeout\n");
 		ret = -EIO;
@@ -320,7 +338,7 @@ static long ethosu_ioctl(struct file *file,
 	if (ret)
 		return ret;
 
-	dev_info(edev->dev, "Ioctl. cmd=%u, arg=%lu\n", cmd, arg);
+	dev_info(edev->dev, "Ioctl. cmd=0x%x, arg=0x%lx\n", cmd, arg);
 
 	switch (cmd) {
 	case ETHOSU_IOCTL_VERSION_REQ:
@@ -416,6 +434,7 @@ int ethosu_dev_init(struct ethosu_device *edev,
 	mutex_init(&edev->mutex);
 	INIT_LIST_HEAD(&edev->capabilities_list);
 	INIT_LIST_HEAD(&edev->inference_list);
+	INIT_LIST_HEAD(&edev->network_info_list);
 
 	ret = of_reserved_mem_device_init(edev->dev);
 	if (ret)

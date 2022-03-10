@@ -57,6 +57,8 @@ enum ethosu_core_msg_type {
 	ETHOSU_CORE_MSG_VERSION_RSP,
 	ETHOSU_CORE_MSG_CAPABILITIES_REQ,
 	ETHOSU_CORE_MSG_CAPABILITIES_RSP,
+	ETHOSU_CORE_MSG_NETWORK_INFO_REQ,
+	ETHOSU_CORE_MSG_NETWORK_INFO_RSP,
 	ETHOSU_CORE_MSG_MAX
 };
 
@@ -152,6 +154,27 @@ struct ethosu_core_inference_rsp {
 	uint32_t pmu_event_count[ETHOSU_CORE_PMU_MAX];
 	uint32_t pmu_cycle_counter_enable;
 	uint64_t pmu_cycle_counter_count;
+};
+
+/**
+ * struct ethosu_core_network_info_req - Network information request
+ */
+struct ethosu_core_network_info_req {
+	uint64_t                          user_arg;
+	struct ethosu_core_network_buffer network;
+};
+
+/**
+ * struct ethosu_core_network_info_rsp - Network information response
+ */
+struct ethosu_core_network_info_rsp {
+	uint64_t user_arg;
+	char     desc[32];
+	uint32_t ifm_count;
+	uint32_t ifm_size[ETHOSU_CORE_BUFFER_MAX];
+	uint32_t ofm_count;
+	uint32_t ofm_size[ETHOSU_CORE_BUFFER_MAX];
+	uint32_t status;
 };
 
 /**

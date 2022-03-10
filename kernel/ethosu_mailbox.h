@@ -138,4 +138,14 @@ int ethosu_mailbox_inference(struct ethosu_mailbox *mbox,
 			     uint8_t pmu_event_config_count,
 			     uint8_t pmu_cycle_counter_enable);
 
+/**
+ * ethosu_mailbox_network_info_request() - Send network info request
+ *
+ * Return: 0 on success, else error code.
+ */
+int ethosu_mailbox_network_info_request(struct ethosu_mailbox *mbox,
+					void *user_arg,
+					struct ethosu_buffer *network,
+					uint32_t network_index);
+
 #endif /* ETHOSU_MAILBOX_H */
