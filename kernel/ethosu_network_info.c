@@ -47,6 +47,24 @@ static void ethosu_network_info_destroy(struct kref *kref)
 	devm_kfree(info->edev->dev, info);
 }
 
+static int ethosu_network_info_send(struct ethosu_network_info *info)
+{
+	int ret;
+
+	/* Send network info request to firmware */
+	ret = ethosu_mailbox_network_info_request(&info->edev->mailbox,
+						  info,
+						  info->net->buf,
+						  info->net->index);
+	if (ret)
+		return ret;
+
+	/* Increase reference count for the pending network info response */
+	ethosu_network_info_get(info);
+
+	return 0;
+}
+
 struct ethosu_network_info *ethosu_network_info_create(
 	struct ethosu_device *edev,
 	struct ethosu_network *net,
@@ -71,16 +89,9 @@ struct ethosu_network_info *ethosu_network_info_create(
 	/* Get reference to network */
 	ethosu_network_get(net);
 
-	/* Send network info request to firmware */
-	ret = ethosu_mailbox_network_info_request(&info->edev->mailbox,
-						  info,
-						  info->net->buf,
-						  info->net->index);
+	ret = ethosu_network_info_send(info);
 	if (ret)
 		goto put_info;
-
-	/* Increase reference count for the pending network info response */
-	ethosu_network_info_get(info);
 
 	dev_info(edev->dev, "Network info create. handle=%p\n", info);
 

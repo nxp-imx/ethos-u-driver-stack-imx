@@ -39,6 +39,7 @@ struct ethosu_buffer;
 struct ethosu_device;
 struct ethosu_core_msg;
 struct ethosu_core_queue;
+struct ethosu_watchdog;
 struct resource;
 
 typedef void (*ethosu_mailbox_cb)(void *user_arg);
@@ -54,6 +55,7 @@ struct ethosu_mailbox {
 	struct mbox_chan         *tx;
 	ethosu_mailbox_cb        callback;
 	void                     *user_arg;
+	struct ethosu_watchdog   *wdog;
 };
 
 /****************************************************************************
@@ -70,7 +72,8 @@ int ethosu_mailbox_init(struct ethosu_mailbox *mbox,
 			struct resource *in_queue,
 			struct resource *out_queue,
 			ethosu_mailbox_cb callback,
-			void *user_arg);
+			void *user_arg,
+			struct ethosu_watchdog *wdog);
 
 /**
  * ethosu_mailbox_deinit() - Deinitialize mailbox

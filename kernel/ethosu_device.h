@@ -27,6 +27,7 @@
 
 #include "uapi/ethosu.h"
 #include "ethosu_mailbox.h"
+#include "ethosu_watchdog.h"
 
 #include <linux/device.h>
 #include <linux/cdev.h>
@@ -43,15 +44,16 @@
  * struct ethosu_device - Device structure
  */
 struct ethosu_device {
-	struct device         *dev;
-	struct cdev           cdev;
-	struct                class *class;
-	dev_t                 devt;
-	struct mutex          mutex;
-	struct ethosu_mailbox mailbox;
-	struct list_head      capabilities_list;
-	struct list_head      inference_list;
-	struct list_head      network_info_list;
+	struct device          *dev;
+	struct cdev            cdev;
+	struct                 class *class;
+	dev_t                  devt;
+	struct mutex           mutex;
+	struct ethosu_mailbox  mailbox;
+	struct ethosu_watchdog watchdog;
+	struct list_head       capabilities_list;
+	struct list_head       inference_list;
+	struct list_head       network_info_list;
 };
 
 /**

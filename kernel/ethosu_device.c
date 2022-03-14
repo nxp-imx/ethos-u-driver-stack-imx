@@ -252,6 +252,18 @@ static int ethosu_handle_msg(struct ethosu_device *edev)
 	return ret;
 }
 
+static void ethosu_watchdog_callback(struct ethosu_watchdog *wdog)
+{
+	struct ethosu_device *edev =
+		container_of(wdog, struct ethosu_device, watchdog);
+
+	mutex_lock(&edev->mutex);
+
+	dev_warn(edev->dev, "Device watchdog timeout");
+
+	mutex_unlock(&edev->mutex);
+}
+
 static int ethosu_open(struct inode *inode,
 		       struct file *file)
 {
@@ -442,10 +454,15 @@ int ethosu_dev_init(struct ethosu_device *edev,
 
 	dma_set_mask_and_coherent(edev->dev, DMA_BIT_MASK(DMA_ADDR_BITS));
 
-	ret = ethosu_mailbox_init(&edev->mailbox, dev, in_queue, out_queue,
-				  ethosu_mbox_rx, edev);
+	ret = ethosu_watchdog_init(&edev->watchdog, dev,
+				   ethosu_watchdog_callback);
 	if (ret)
 		goto release_reserved_mem;
+
+	ret = ethosu_mailbox_init(&edev->mailbox, dev, in_queue, out_queue,
+				  ethosu_mbox_rx, edev, &edev->watchdog);
+	if (ret)
+		goto deinit_watchdog;
 
 	cdev_init(&edev->cdev, &fops);
 	edev->cdev.owner = THIS_MODULE;
@@ -476,6 +493,9 @@ del_cdev:
 deinit_mailbox:
 	ethosu_mailbox_deinit(&edev->mailbox);
 
+deinit_watchdog:
+	ethosu_watchdog_deinit(&edev->watchdog);
+
 release_reserved_mem:
 	of_reserved_mem_device_release(edev->dev);
 
@@ -485,6 +505,7 @@ release_reserved_mem:
 void ethosu_dev_deinit(struct ethosu_device *edev)
 {
 	ethosu_mailbox_deinit(&edev->mailbox);
+	ethosu_watchdog_deinit(&edev->watchdog);
 	device_destroy(edev->class, edev->cdev.dev);
 	cdev_del(&edev->cdev);
 	of_reserved_mem_device_release(edev->dev);

@@ -23,6 +23,7 @@
  ****************************************************************************/
 
 #include "ethosu_mailbox.h"
+#include "ethosu_watchdog.h"
 
 #include "ethosu_buffer.h"
 #include "ethosu_core_interface.h"
@@ -34,6 +35,38 @@
 /****************************************************************************
  * Functions
  ****************************************************************************/
+
+static void ethosu_wd_inc(struct ethosu_mailbox *mbox,
+			  enum ethosu_core_msg_type type)
+{
+	switch (type) {
+	case ETHOSU_CORE_MSG_PING:
+	case ETHOSU_CORE_MSG_INFERENCE_REQ:
+	case ETHOSU_CORE_MSG_VERSION_REQ:
+	case ETHOSU_CORE_MSG_CAPABILITIES_REQ:
+	case ETHOSU_CORE_MSG_NETWORK_INFO_REQ:
+		ethosu_watchdog_inc(mbox->wdog);
+		break;
+	default:
+		break;
+	}
+}
+
+static void ethosu_wd_dec(struct ethosu_mailbox *mbox,
+			  enum ethosu_core_msg_type type)
+{
+	switch (type) {
+	case ETHOSU_CORE_MSG_PONG:
+	case ETHOSU_CORE_MSG_INFERENCE_RSP:
+	case ETHOSU_CORE_MSG_VERSION_RSP:
+	case ETHOSU_CORE_MSG_CAPABILITIES_RSP:
+	case ETHOSU_CORE_MSG_NETWORK_INFO_RSP:
+		ethosu_watchdog_dec(mbox->wdog);
+		break;
+	default:
+		break;
+	}
+}
 
 static void ethosu_core_set_size(struct ethosu_buffer *buf,
 				 struct ethosu_core_buffer *cbuf)
@@ -113,8 +146,15 @@ static int ethosu_queue_write_msg(struct ethosu_mailbox *mbox,
 		{ &msg, sizeof(msg) },
 		{ data, length      }
 	};
+	int ret;
 
-	return ethosu_queue_write(mbox, vec, 2);
+	ret = ethosu_queue_write(mbox, vec, 2);
+	if (ret)
+		return ret;
+
+	ethosu_wd_inc(mbox, type);
+
+	return 0;
 }
 
 static int ethosu_queue_read(struct ethosu_mailbox *mbox,
@@ -195,6 +235,8 @@ int ethosu_mailbox_read(struct ethosu_mailbox *mbox,
 
 		return -EBADMSG;
 	}
+
+	ethosu_wd_dec(mbox, header->type);
 
 	return 0;
 }
@@ -329,13 +371,15 @@ int ethosu_mailbox_init(struct ethosu_mailbox *mbox,
 			struct resource *in_queue,
 			struct resource *out_queue,
 			ethosu_mailbox_cb callback,
-			void *user_arg)
+			void *user_arg,
+			struct ethosu_watchdog *wdog)
 {
 	int ret;
 
 	mbox->dev = dev;
 	mbox->callback = callback;
 	mbox->user_arg = user_arg;
+	mbox->wdog = wdog;
 
 	mbox->client.dev = dev;
 	mbox->client.rx_callback = ethosu_mailbox_rx_callback;
