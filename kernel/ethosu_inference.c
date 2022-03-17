@@ -28,7 +28,6 @@
 #include "ethosu_core_interface.h"
 #include "ethosu_device.h"
 #include "ethosu_network.h"
-#include "uapi/ethosu.h"
 
 #include <linux/anon_inodes.h>
 #include <linux/file.h>
@@ -81,9 +80,6 @@ static int ethosu_inference_send(struct ethosu_inference *inf)
 {
 	int ret;
 
-	if (inf->pending)
-		return -EINVAL;
-
 	inf->status = ETHOSU_UAPI_STATUS_ERROR;
 
 	ret = ethosu_mailbox_inference(&inf->edev->mailbox, inf,
@@ -97,24 +93,51 @@ static int ethosu_inference_send(struct ethosu_inference *inf)
 	if (ret)
 		return ret;
 
-	inf->pending = true;
-
 	ethosu_inference_get(inf);
 
 	return 0;
 }
 
-static int ethosu_inference_find(struct ethosu_inference *inf,
-				 struct list_head *inference_list)
+static void ethosu_inference_fail(struct ethosu_mailbox_msg *msg)
 {
-	struct ethosu_inference *cur;
+	struct ethosu_inference *inf =
+		container_of(msg, typeof(*inf), msg);
+	int ret;
 
-	list_for_each_entry(cur, inference_list, list) {
-		if (cur == inf)
-			return 0;
+	/* Decrement reference count if inference was pending reponse */
+	if (!inf->done) {
+		ret = ethosu_inference_put(inf);
+		if (ret)
+			return;
 	}
 
-	return -EINVAL;
+	/* Fail inference and wake up any waiting process */
+	inf->status = ETHOSU_UAPI_STATUS_ERROR;
+	inf->done = true;
+	wake_up_interruptible(&inf->waitq);
+}
+
+static int ethosu_inference_resend(struct ethosu_mailbox_msg *msg)
+{
+	struct ethosu_inference *inf =
+		container_of(msg, typeof(*inf), msg);
+	int ret;
+
+	/* Don't resend request if response has already been received */
+	if (inf->done)
+		return 0;
+
+	/* Decrement reference count for pending request */
+	ret = ethosu_inference_put(inf);
+	if (ret)
+		return 0;
+
+	/* Resend request */
+	ret = ethosu_inference_send(inf);
+	if (ret)
+		return ret;
+
+	return 0;
 }
 
 static bool ethosu_inference_verify(struct file *file)
@@ -131,7 +154,7 @@ static void ethosu_inference_kref_destroy(struct kref *kref)
 		 "Inference destroy. handle=0x%pK, status=%d\n",
 		 inf, inf->status);
 
-	list_del(&inf->list);
+	list_del(&inf->msg.list);
 
 	while (inf->ifm_count-- > 0)
 		ethosu_buffer_put(inf->ifm[inf->ifm_count]);
@@ -165,7 +188,7 @@ static unsigned int ethosu_inference_poll(struct file *file,
 
 	poll_wait(file, &inf->waitq, wait);
 
-	if (!inf->pending)
+	if (inf->done)
 		ret |= POLLIN;
 
 	return ret;
@@ -237,10 +260,12 @@ int ethosu_inference_create(struct ethosu_device *edev,
 
 	inf->edev = edev;
 	inf->net = net;
-	inf->pending = false;
+	inf->done = false;
 	inf->status = ETHOSU_UAPI_STATUS_ERROR;
 	kref_init(&inf->kref);
 	init_waitqueue_head(&inf->waitq);
+	inf->msg.fail = ethosu_inference_fail;
+	inf->msg.resend = ethosu_inference_resend;
 
 	/* Get pointer to IFM buffers */
 	for (i = 0; i < uapi->ifm_count; i++) {
@@ -296,8 +321,8 @@ int ethosu_inference_create(struct ethosu_device *edev,
 	inf->file = fget(ret);
 	fput(inf->file);
 
-	/* Add inference to inference list */
-	list_add(&inf->list, &edev->inference_list);
+	/* Add inference to pending list */
+	list_add(&inf->msg.list, &edev->mailbox.pending_list);
 
 	/* Send inference request to Arm Ethos-U subsystem */
 	(void)ethosu_inference_send(inf);
@@ -350,9 +375,9 @@ void ethosu_inference_get(struct ethosu_inference *inf)
 	kref_get(&inf->kref);
 }
 
-void ethosu_inference_put(struct ethosu_inference *inf)
+int ethosu_inference_put(struct ethosu_inference *inf)
 {
-	kref_put(&inf->kref, &ethosu_inference_kref_destroy);
+	return kref_put(&inf->kref, &ethosu_inference_kref_destroy);
 }
 
 void ethosu_inference_rsp(struct ethosu_device *edev,
@@ -363,7 +388,7 @@ void ethosu_inference_rsp(struct ethosu_device *edev,
 	int ret;
 	int i;
 
-	ret = ethosu_inference_find(inf, &edev->inference_list);
+	ret = ethosu_mailbox_find(&edev->mailbox, &inf->msg);
 	if (ret) {
 		dev_warn(edev->dev,
 			 "Handle not found in inference list. handle=0x%p\n",
@@ -371,8 +396,6 @@ void ethosu_inference_rsp(struct ethosu_device *edev,
 
 		return;
 	}
-
-	inf->pending = false;
 
 	if (rsp->status == ETHOSU_CORE_STATUS_OK &&
 	    inf->ofm_count <= ETHOSU_CORE_BUFFER_MAX) {
@@ -412,6 +435,8 @@ void ethosu_inference_rsp(struct ethosu_device *edev,
 		 "PMU cycle counter. enable=%u, count=%llu\n",
 		 inf->pmu_cycle_counter_enable,
 		 inf->pmu_cycle_counter_count);
+
+	inf->done = true;
 	wake_up_interruptible(&inf->waitq);
 
 	ethosu_inference_put(inf);

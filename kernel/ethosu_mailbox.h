@@ -55,7 +55,15 @@ struct ethosu_mailbox {
 	struct mbox_chan         *tx;
 	ethosu_mailbox_cb        callback;
 	void                     *user_arg;
+	struct list_head         pending_list;
 	struct ethosu_watchdog   *wdog;
+	unsigned                 ping_count;
+};
+
+struct ethosu_mailbox_msg {
+	struct list_head list;
+	void             (*fail)(struct ethosu_mailbox_msg *msg);
+	int              (*resend)(struct ethosu_mailbox_msg *msg);
 };
 
 /****************************************************************************
@@ -81,6 +89,26 @@ int ethosu_mailbox_init(struct ethosu_mailbox *mbox,
 void ethosu_mailbox_deinit(struct ethosu_mailbox *mbox);
 
 /**
+ * ethosu_mailbox_wait_prepare() - Prepare to wait on firmware
+ *
+ * This function must only be called when the firmware is in a
+ * stopped state. It invalidates the firmware queues setting
+ * size, read and write positions to illegal values.
+ */
+void ethosu_mailbox_wait_prepare(struct ethosu_mailbox *mbox);
+
+/**
+ * ethosu_mailbox_wait_firmware() - Waiting for firmware to initialize
+ *                                  message queues
+ *
+ * Following a call to ethosu_mailbox_wait_prepare() this function waits for
+ * the firmware to boot up and initialize the firmware queues.
+ *
+ * Return: 0 on success, else error code.
+ */
+int ethosu_mailbox_wait_firmware(struct ethosu_mailbox *mbox);
+
+/**
  * ethosu_mailbox_read() - Read message from mailbox
  *
  * Return: 0 message read, else error code.
@@ -89,6 +117,30 @@ int ethosu_mailbox_read(struct ethosu_mailbox *mbox,
 			struct ethosu_core_msg *header,
 			void *data,
 			size_t length);
+
+/**
+ * ethosu_mailbox_find() - Find mailbox message
+ *
+ * Return: 0 on success, else error code.
+ */
+int ethosu_mailbox_find(struct ethosu_mailbox *mbox,
+			struct ethosu_mailbox_msg *msg);
+
+/**
+ * ethosu_mailbox_fail() - Fail mailbox messages
+ *
+ * Call fail() callback on all messages in pending list.
+ */
+void ethosu_mailbox_fail(struct ethosu_mailbox *mbox);
+
+/**
+ * ethosu_mailbox_resend() - Resend mailbox messages
+ *
+ * Call resend() callback on all messages in pending list.
+ *
+ * Return: 0 on success, else error code.
+ */
+int ethosu_mailbox_resend(struct ethosu_mailbox *mbox);
 
 /**
  * ethosu_mailbox_reset() - Reset to end of queue

@@ -26,6 +26,7 @@
  ****************************************************************************/
 
 #include "ethosu_core_interface.h"
+#include "ethosu_mailbox.h"
 
 #include <linux/kref.h>
 #include <linux/types.h>
@@ -44,9 +45,9 @@ struct ethosu_network_info {
 	struct ethosu_network           *net;
 	struct ethosu_uapi_network_info *uapi;
 	struct kref                     kref;
-	struct list_head                list;
 	struct completion               done;
 	int                             errno;
+	struct ethosu_mailbox_msg       msg;
 };
 
 /****************************************************************************
@@ -72,8 +73,10 @@ void ethosu_network_info_get(struct ethosu_network_info *info);
 
 /**
  * ethosu_network_info_put() - Put network info
+ *
+ * Return: 1 if object was removed, else 0.
  */
-void ethosu_network_info_put(struct ethosu_network_info *info);
+int ethosu_network_info_put(struct ethosu_network_info *info);
 
 /**
  * ethosu_network_info_wait() - Get network info

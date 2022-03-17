@@ -104,6 +104,9 @@ static int ethosu_network_info_request(struct ethosu_network *net,
 	ret = ethosu_network_info_wait(info, 3000);
 	mutex_lock(&net->edev->mutex);
 
+	if (ret)
+		info->msg.fail(&info->msg);
+
 	ethosu_network_info_put(info);
 
 	return ret;
@@ -240,7 +243,7 @@ void ethosu_network_get(struct ethosu_network *net)
 	kref_get(&net->kref);
 }
 
-void ethosu_network_put(struct ethosu_network *net)
+int ethosu_network_put(struct ethosu_network *net)
 {
-	kref_put(&net->kref, ethosu_network_destroy);
+	return kref_put(&net->kref, ethosu_network_destroy);
 }

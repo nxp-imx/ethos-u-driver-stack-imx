@@ -23,14 +23,27 @@
  ****************************************************************************/
 
 #include "ethosu_mailbox.h"
-#include "ethosu_watchdog.h"
 
 #include "ethosu_buffer.h"
 #include "ethosu_core_interface.h"
 #include "ethosu_device.h"
+#include "ethosu_watchdog.h"
 
+#include <linux/jiffies.h>
 #include <linux/resource.h>
 #include <linux/uio.h>
+
+/****************************************************************************
+ * Includes
+ ****************************************************************************/
+
+#ifndef fallthrough
+#if __has_attribute(__fallthrough__)
+#define fallthrough __attribute__((__fallthrough__))
+#else
+#define fallthrough do {} while (0)  /* fallthrough */
+#endif
+#endif
 
 /****************************************************************************
  * Functions
@@ -41,10 +54,9 @@ static void ethosu_wd_inc(struct ethosu_mailbox *mbox,
 {
 	switch (type) {
 	case ETHOSU_CORE_MSG_PING:
+		mbox->ping_count++;
+		fallthrough;
 	case ETHOSU_CORE_MSG_INFERENCE_REQ:
-	case ETHOSU_CORE_MSG_VERSION_REQ:
-	case ETHOSU_CORE_MSG_CAPABILITIES_REQ:
-	case ETHOSU_CORE_MSG_NETWORK_INFO_REQ:
 		ethosu_watchdog_inc(mbox->wdog);
 		break;
 	default:
@@ -57,10 +69,9 @@ static void ethosu_wd_dec(struct ethosu_mailbox *mbox,
 {
 	switch (type) {
 	case ETHOSU_CORE_MSG_PONG:
+		mbox->ping_count--;
+		fallthrough;
 	case ETHOSU_CORE_MSG_INFERENCE_RSP:
-	case ETHOSU_CORE_MSG_VERSION_RSP:
-	case ETHOSU_CORE_MSG_CAPABILITIES_RSP:
-	case ETHOSU_CORE_MSG_NETWORK_INFO_RSP:
 		ethosu_watchdog_dec(mbox->wdog);
 		break;
 	default:
@@ -190,6 +201,36 @@ void ethosu_mailbox_reset(struct ethosu_mailbox *mbox)
 	mbox->out_queue->header.read = mbox->out_queue->header.write;
 }
 
+void ethosu_mailbox_wait_prepare(struct ethosu_mailbox *mbox)
+{
+	mbox->in_queue->header.size = 0;
+	mbox->in_queue->header.read = 0xffffff;
+	mbox->in_queue->header.write = 0xffffff;
+}
+
+int ethosu_mailbox_wait_firmware(struct ethosu_mailbox *mbox)
+{
+	const unsigned long timeout = 1000;
+	const unsigned long end = jiffies + msecs_to_jiffies(timeout);
+	volatile struct ethosu_core_queue_header *hdr =
+		&mbox->in_queue->header;
+	int ret = -ETIMEDOUT;
+
+	/* Spin wait on mailbox initialization */
+	while ((end - jiffies) < timeout)
+		if (hdr->size != 0 &&
+		    hdr->read != 0xffffff &&
+		    hdr->write != 0xffffff) {
+			ret = 0;
+			break;
+		}
+
+	dev_info(mbox->dev, "mbox: Wait. ret=%d, size=%u, read=%u, write=%u",
+		 ret, hdr->size, hdr->read, hdr->write);
+
+	return ret;
+}
+
 int ethosu_mailbox_read(struct ethosu_mailbox *mbox,
 			struct ethosu_core_msg *header,
 			void *data,
@@ -237,6 +278,45 @@ int ethosu_mailbox_read(struct ethosu_mailbox *mbox,
 	}
 
 	ethosu_wd_dec(mbox, header->type);
+
+	return 0;
+}
+
+int ethosu_mailbox_find(struct ethosu_mailbox *mbox,
+			struct ethosu_mailbox_msg *msg)
+{
+	struct ethosu_mailbox_msg *cur;
+
+	list_for_each_entry(cur, &mbox->pending_list, list) {
+		if (cur == msg)
+			return 0;
+	}
+
+	return -EINVAL;
+}
+
+void ethosu_mailbox_fail(struct ethosu_mailbox *mbox)
+{
+	struct ethosu_mailbox_msg *cur, *cur_tmp;
+
+	list_for_each_entry_safe(cur, cur_tmp, &mbox->pending_list, list) {
+		cur->fail(cur);
+	}
+}
+
+int ethosu_mailbox_resend(struct ethosu_mailbox *mbox)
+{
+	struct ethosu_mailbox_msg *cur, *cur_tmp;
+	int ret;
+
+	list_for_each_entry_safe(cur, cur_tmp, &mbox->pending_list, list) {
+		ret = cur->resend(cur);
+		if (ret) {
+			cur->fail(cur);
+
+			return ret;
+		}
+	}
 
 	return 0;
 }
@@ -380,6 +460,8 @@ int ethosu_mailbox_init(struct ethosu_mailbox *mbox,
 	mbox->callback = callback;
 	mbox->user_arg = user_arg;
 	mbox->wdog = wdog;
+	mbox->ping_count = 0;
+	INIT_LIST_HEAD(&mbox->pending_list);
 
 	mbox->client.dev = dev;
 	mbox->client.rx_callback = ethosu_mailbox_rx_callback;

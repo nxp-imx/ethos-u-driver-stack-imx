@@ -76,7 +76,9 @@ void ethosu_network_get(struct ethosu_network *net);
 
 /**
  * ethosu_network_put() - Put network
+ *
+ * Return: 1 if object was removed, else 0.
  */
-void ethosu_network_put(struct ethosu_network *net);
+int ethosu_network_put(struct ethosu_network *net);
 
 #endif /* ETHOSU_NETWORK_H */

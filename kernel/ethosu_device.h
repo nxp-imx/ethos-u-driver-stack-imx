@@ -40,6 +40,8 @@
  * Types
  ****************************************************************************/
 
+struct reset_control;
+
 /**
  * struct ethosu_device - Device structure
  */
@@ -51,9 +53,7 @@ struct ethosu_device {
 	struct mutex           mutex;
 	struct ethosu_mailbox  mailbox;
 	struct ethosu_watchdog watchdog;
-	struct list_head       capabilities_list;
-	struct list_head       inference_list;
-	struct list_head       network_info_list;
+	struct reset_control   *reset;
 };
 
 /**
@@ -64,7 +64,8 @@ struct ethosu_capabilities {
 	struct completion                      done;
 	struct kref                            refcount;
 	struct ethosu_uapi_device_capabilities *capabilities;
-	struct list_head                       list;
+	struct ethosu_mailbox_msg              msg;
+	int                                    errno;
 };
 
 /****************************************************************************

@@ -40,7 +40,7 @@ static void ethosu_network_info_destroy(struct kref *kref)
 
 	dev_info(info->edev->dev, "Network info destroy. handle=0x%pK\n", info);
 
-	list_del(&info->list);
+	list_del(&info->msg.list);
 
 	ethosu_network_put(info->net);
 
@@ -59,8 +59,35 @@ static int ethosu_network_info_send(struct ethosu_network_info *info)
 	if (ret)
 		return ret;
 
-	/* Increase reference count for the pending network info response */
-	ethosu_network_info_get(info);
+	return 0;
+}
+
+static void ethosu_network_info_fail(struct ethosu_mailbox_msg *msg)
+{
+	struct ethosu_network_info *info =
+		container_of(msg, typeof(*info), msg);
+
+	if (completion_done(&info->done))
+		return;
+
+	info->errno = -EFAULT;
+	complete(&info->done);
+}
+
+static int ethosu_network_info_resend(struct ethosu_mailbox_msg *msg)
+{
+	struct ethosu_network_info *info =
+		container_of(msg, typeof(*info), msg);
+	int ret;
+
+	/* Don't resend request if response has already been received */
+	if (completion_done(&info->done))
+		return 0;
+
+	/* Resend request */
+	ret = ethosu_network_info_send(info);
+	if (ret)
+		return ret;
 
 	return 0;
 }
@@ -82,9 +109,11 @@ struct ethosu_network_info *ethosu_network_info_create(
 	info->uapi = uapi;
 	kref_init(&info->kref);
 	init_completion(&info->done);
+	info->msg.fail = ethosu_network_info_fail;
+	info->msg.resend = ethosu_network_info_resend;
 
 	/* Insert network info to network info list */
-	list_add(&info->list, &edev->network_info_list);
+	list_add(&info->msg.list, &edev->mailbox.pending_list);
 
 	/* Get reference to network */
 	ethosu_network_get(net);
@@ -103,27 +132,14 @@ put_info:
 	return ERR_PTR(ret);
 }
 
-static int ethosu_network_info_find(struct ethosu_network_info *info,
-				    struct list_head *network_info_list)
-{
-	struct ethosu_network_info *cur;
-
-	list_for_each_entry(cur, network_info_list, list) {
-		if (cur == info)
-			return 0;
-	}
-
-	return -EINVAL;
-}
-
 void ethosu_network_info_get(struct ethosu_network_info *info)
 {
 	kref_get(&info->kref);
 }
 
-void ethosu_network_info_put(struct ethosu_network_info *info)
+int ethosu_network_info_put(struct ethosu_network_info *info)
 {
-	kref_put(&info->kref, ethosu_network_info_destroy);
+	return kref_put(&info->kref, ethosu_network_info_destroy);
 }
 
 int ethosu_network_info_wait(struct ethosu_network_info *info,
@@ -152,7 +168,7 @@ void ethosu_network_info_rsp(struct ethosu_device *edev,
 	uint32_t i;
 	int ret;
 
-	ret = ethosu_network_info_find(info, &edev->network_info_list);
+	ret = ethosu_mailbox_find(&edev->mailbox, &info->msg);
 	if (0 != ret) {
 		dev_warn(edev->dev,
 			 "Handle not found in network info list. handle=0x%p\n",
@@ -160,6 +176,9 @@ void ethosu_network_info_rsp(struct ethosu_device *edev,
 
 		return;
 	}
+
+	if (completion_done(&info->done))
+		return;
 
 	info->errno = 0;
 
@@ -185,6 +204,4 @@ void ethosu_network_info_rsp(struct ethosu_device *edev,
 
 signal_complete:
 	complete(&info->done);
-
-	ethosu_network_info_put(info);
 }
