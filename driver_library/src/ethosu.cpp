@@ -340,6 +340,10 @@ ostream &operator<<(ostream &out, const InferenceStatus &status) {
         return out << "running";
     case InferenceStatus::REJECTED:
         return out << "rejected";
+    case InferenceStatus::ABORTED:
+        return out << "aborted";
+    case InferenceStatus::ABORTING:
+        return out << "aborting";
     }
     throw Exception("Unknown inference status");
 }
@@ -390,7 +394,7 @@ uint32_t Inference::getMaxPmuEventCounters() {
     return ETHOSU_PMU_EVENT_MAX;
 }
 
-int Inference::wait(int64_t timeoutNanos) const {
+bool Inference::wait(int64_t timeoutNanos) const {
     struct pollfd pfd;
     pfd.fd      = fd;
     pfd.events  = POLLIN | POLLERR;
@@ -406,7 +410,13 @@ int Inference::wait(int64_t timeoutNanos) const {
     tmo_p.tv_sec    = timeoutNanos / nanosec;
     tmo_p.tv_nsec   = timeoutNanos % nanosec;
 
-    return eppoll(&pfd, 1, &tmo_p, NULL);
+    return eppoll(&pfd, 1, &tmo_p, NULL) == 0;
+}
+
+bool Inference::cancel() const {
+    ethosu_uapi_cancel_inference_status uapi;
+    eioctl(fd, ETHOSU_IOCTL_INFERENCE_CANCEL, static_cast<void *>(&uapi));
+    return uapi.status == ETHOSU_UAPI_STATUS_OK;
 }
 
 InferenceStatus Inference::status() const {
@@ -423,6 +433,10 @@ InferenceStatus Inference::status() const {
         return InferenceStatus::RUNNING;
     case ETHOSU_UAPI_STATUS_REJECTED:
         return InferenceStatus::REJECTED;
+    case ETHOSU_UAPI_STATUS_ABORTED:
+        return InferenceStatus::ABORTED;
+    case ETHOSU_UAPI_STATUS_ABORTING:
+        return InferenceStatus::ABORTING;
     }
 
     throw Exception("Unknown inference status");

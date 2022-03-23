@@ -59,6 +59,8 @@ enum ethosu_core_msg_type {
 	ETHOSU_CORE_MSG_CAPABILITIES_RSP,
 	ETHOSU_CORE_MSG_NETWORK_INFO_REQ,
 	ETHOSU_CORE_MSG_NETWORK_INFO_RSP,
+	ETHOSU_CORE_MSG_CANCEL_INFERENCE_REQ,
+	ETHOSU_CORE_MSG_CANCEL_INFERENCE_RSP,
 	ETHOSU_CORE_MSG_MAX
 };
 
@@ -98,6 +100,8 @@ enum ethosu_core_status {
 	ETHOSU_CORE_STATUS_ERROR,
 	ETHOSU_CORE_STATUS_RUNNING,
 	ETHOSU_CORE_STATUS_REJECTED,
+	ETHOSU_CORE_STATUS_ABORTED,
+	ETHOSU_CORE_STATUS_ABORTING,
 };
 
 /**
@@ -214,6 +218,22 @@ struct ethosu_core_msg_capabilities_rsp {
 	uint32_t macs_per_cc;
 	uint32_t cmd_stream_version;
 	uint32_t custom_dma;
+};
+
+/**
+ * struct ethosu_core_cancel_inference_req - Message cancel inference request
+ */
+struct ethosu_core_cancel_inference_req {
+	uint64_t user_arg;
+	uint64_t inference_handle;
+};
+
+/**
+ * struct ethosu_core_cancel_inference_rsp - Message cancel inference response
+ */
+struct ethosu_core_cancel_inference_rsp {
+	uint64_t user_arg;
+	uint32_t status;
 };
 
 /**

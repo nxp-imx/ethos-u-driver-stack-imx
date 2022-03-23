@@ -203,4 +203,13 @@ int ethosu_mailbox_network_info_request(struct ethosu_mailbox *mbox,
 					struct ethosu_buffer *network,
 					uint32_t network_index);
 
+/**
+ * ethosu_mailbox_cancel_inference() - Send inference cancellation
+ *
+ * Return: 0 on success, else error code.
+ */
+int ethosu_mailbox_cancel_inference(struct ethosu_mailbox *mbox,
+				    void *user_arg,
+				    void *inference_handle);
+
 #endif /* ETHOSU_MAILBOX_H */

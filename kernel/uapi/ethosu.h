@@ -59,6 +59,8 @@ namespace EthosU {
 						   struct ethosu_uapi_inference_create)
 #define ETHOSU_IOCTL_INFERENCE_STATUS   ETHOSU_IOR(0x31, \
 						   struct ethosu_uapi_result_status)
+#define ETHOSU_IOCTL_INFERENCE_CANCEL   ETHOSU_IOR(0x32, \
+						   struct ethosu_uapi_cancel_inference_status)
 
 /* Maximum number of IFM/OFM file descriptors per network */
 #define ETHOSU_FD_MAX                   16
@@ -78,6 +80,8 @@ enum ethosu_uapi_status {
 	ETHOSU_UAPI_STATUS_ERROR,
 	ETHOSU_UAPI_STATUS_RUNNING,
 	ETHOSU_UAPI_STATUS_REJECTED,
+	ETHOSU_UAPI_STATUS_ABORTED,
+	ETHOSU_UAPI_STATUS_ABORTING,
 };
 
 /**
@@ -236,6 +240,14 @@ struct ethosu_uapi_result_status {
 	enum ethosu_uapi_status       status;
 	struct ethosu_uapi_pmu_config pmu_config;
 	struct ethosu_uapi_pmu_counts pmu_count;
+};
+
+/**
+ * struct ethosu_uapi_cancel_status - Status of inference cancellation.
+ * @status	OK if inference cancellation was performed, ERROR otherwise.
+ */
+struct ethosu_uapi_cancel_inference_status {
+	enum ethosu_uapi_status status;
 };
 
 #ifdef __cplusplus

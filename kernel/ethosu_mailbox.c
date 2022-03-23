@@ -418,6 +418,20 @@ int ethosu_mailbox_network_info_request(struct ethosu_mailbox *mbox,
 				      &info, sizeof(info));
 }
 
+int ethosu_mailbox_cancel_inference(struct ethosu_mailbox *mbox,
+				    void *user_arg,
+				    void *inference_handle)
+{
+	struct ethosu_core_cancel_inference_req req;
+
+	req.user_arg = (ptrdiff_t)user_arg;
+	req.inference_handle = (ptrdiff_t)inference_handle;
+
+	return ethosu_queue_write_msg(mbox,
+				      ETHOSU_CORE_MSG_CANCEL_INFERENCE_REQ,
+				      &req, sizeof(req));
+}
+
 static void ethosu_mailbox_rx_work(struct work_struct *work)
 {
 	struct ethosu_mailbox *mbox = container_of(work, typeof(*mbox), work);

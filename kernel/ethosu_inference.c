@@ -28,6 +28,7 @@
 #include "ethosu_core_interface.h"
 #include "ethosu_device.h"
 #include "ethosu_network.h"
+#include "ethosu_cancel_inference.h"
 
 #include <linux/anon_inodes.h>
 #include <linux/file.h>
@@ -76,6 +77,12 @@ static const char *status_to_string(const enum ethosu_uapi_status status)
 	case ETHOSU_UAPI_STATUS_REJECTED: {
 		return "Rejected";
 	}
+	case ETHOSU_UAPI_STATUS_ABORTED: {
+		return "Aborted";
+	}
+	case ETHOSU_UAPI_STATUS_ABORTING: {
+		return "Aborting";
+	}
 	default: {
 		return "Unknown";
 	}
@@ -112,15 +119,19 @@ static void ethosu_inference_fail(struct ethosu_mailbox_msg *msg)
 		container_of(msg, typeof(*inf), msg);
 	int ret;
 
-	/* Decrement reference count if inference was pending reponse */
-	if (!inf->done) {
-		ret = ethosu_inference_put(inf);
-		if (ret)
-			return;
-	}
+	if (inf->done)
+		return;
 
-	/* Fail inference and wake up any waiting process */
-	inf->status = ETHOSU_UAPI_STATUS_ERROR;
+	/* Decrement reference count if inference was pending reponse */
+	ret = ethosu_inference_put(inf);
+	if (ret)
+		return;
+
+	/* Set status accordingly to the inference state */
+	inf->status = inf->status == ETHOSU_UAPI_STATUS_ABORTING ?
+		      ETHOSU_UAPI_STATUS_ABORTED :
+		      ETHOSU_UAPI_STATUS_ERROR;
+	/* Mark it done and wake up the waiting process */
 	inf->done = true;
 	wake_up_interruptible(&inf->waitq);
 }
@@ -134,6 +145,13 @@ static int ethosu_inference_resend(struct ethosu_mailbox_msg *msg)
 	/* Don't resend request if response has already been received */
 	if (inf->done)
 		return 0;
+
+	/* If marked as ABORTING simply fail it and return */
+	if (inf->status == ETHOSU_UAPI_STATUS_ABORTING) {
+		ethosu_inference_fail(msg);
+
+		return 0;
+	}
 
 	/* Decrement reference count for pending request */
 	ret = ethosu_inference_put(inf);
@@ -241,8 +259,22 @@ static long ethosu_inference_ioctl(struct file *file,
 
 		break;
 	}
+	case ETHOSU_IOCTL_INFERENCE_CANCEL: {
+		struct ethosu_uapi_cancel_inference_status uapi;
+
+		dev_info(inf->edev->dev, "Ioctl: Cancel Inference. Handle=%p\n",
+			 inf);
+
+		ret = ethosu_cancel_inference_request(inf, &uapi);
+		if (ret)
+			break;
+
+		ret = copy_to_user(udata, &uapi, sizeof(uapi)) ? -EFAULT : 0;
+
+		break;
+	}
 	default: {
-		dev_err(inf->edev->dev, "Invalid ioctl. cmd=%u, arg=%lu",
+		dev_err(inf->edev->dev, "Invalid ioctl. cmd=%u, arg=%lu\n",
 			cmd, arg);
 		break;
 	}
@@ -422,6 +454,8 @@ void ethosu_inference_rsp(struct ethosu_device *edev,
 		}
 	} else if (rsp->status == ETHOSU_CORE_STATUS_REJECTED) {
 		inf->status = ETHOSU_UAPI_STATUS_REJECTED;
+	} else if (rsp->status == ETHOSU_CORE_STATUS_ABORTED) {
+		inf->status = ETHOSU_UAPI_STATUS_ABORTED;
 	} else {
 		inf->status = ETHOSU_UAPI_STATUS_ERROR;
 	}
@@ -450,6 +484,5 @@ void ethosu_inference_rsp(struct ethosu_device *edev,
 
 	inf->done = true;
 	wake_up_interruptible(&inf->waitq);
-
 	ethosu_inference_put(inf);
 }

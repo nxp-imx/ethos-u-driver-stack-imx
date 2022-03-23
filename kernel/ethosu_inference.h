@@ -30,7 +30,6 @@
 
 #include <linux/kref.h>
 #include <linux/types.h>
-#include <linux/wait.h>
 
 /****************************************************************************
  * Types
@@ -58,6 +57,7 @@ struct file;
  * @pmu_event_count:		PMU event count after inference
  * @pmu_cycle_counter_enable:	PMU cycle counter config
  * @pmu_cycle_counter_count:	PMU cycle counter count after inference
+ * @msg:			Mailbox message
  */
 struct ethosu_inference {
 	struct ethosu_device      *edev;

@@ -27,6 +27,7 @@
 #include "ethosu_buffer.h"
 #include "ethosu_core_interface.h"
 #include "ethosu_inference.h"
+#include "ethosu_cancel_inference.h"
 #include "ethosu_network.h"
 #include "ethosu_network_info.h"
 #include "uapi/ethosu.h"
@@ -209,6 +210,7 @@ static int ethosu_handle_msg(struct ethosu_device *edev)
 		struct ethosu_core_msg_version          version;
 		struct ethosu_core_msg_capabilities_rsp capabilities;
 		struct ethosu_core_network_info_rsp     network_info;
+		struct ethosu_core_cancel_inference_rsp cancellation;
 	} data;
 
 	/* Read message */
@@ -253,6 +255,20 @@ static int ethosu_handle_msg(struct ethosu_device *edev)
 			 data.inf.status);
 
 		ethosu_inference_rsp(edev, &data.inf);
+		break;
+	case ETHOSU_CORE_MSG_CANCEL_INFERENCE_RSP:
+		if (header.length != sizeof(data.cancellation)) {
+			dev_warn(edev->dev,
+				 "Msg: Cancel Inference response of incorrect size. size=%u, expected=%zu\n", header.length,
+				 sizeof(data.cancellation));
+			ret = -EBADMSG;
+			break;
+		}
+
+		dev_info(edev->dev,
+			 "Msg: Cancel Inference response. user_arg=0x%llx, status=%u\n",
+			 data.cancellation.user_arg, data.cancellation.status);
+		ethosu_cancel_inference_rsp(edev, &data.cancellation);
 		break;
 	case ETHOSU_CORE_MSG_VERSION_RSP:
 		if (header.length != sizeof(data.version)) {
