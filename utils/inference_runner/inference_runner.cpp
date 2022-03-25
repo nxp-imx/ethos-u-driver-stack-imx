@@ -122,9 +122,10 @@ shared_ptr<Inference> createInference(Device &device,
 
     // Create IFM buffers
     char s_buffer[DECODE_BUFFER_SIZE];
+    size_t buffer_size = max(size, network->getIfmDims()[0]);
     vector<shared_ptr<Buffer>> ifm;
 //    for (auto size : network->getIfmDims()) {
-        shared_ptr<Buffer> buffer = make_shared<Buffer>(device, size);
+        shared_ptr<Buffer> buffer = make_shared<Buffer>(device, buffer_size);
         buffer->resize(network->getIfmDims()[0]);
         stream.read(s_buffer, size);
 
