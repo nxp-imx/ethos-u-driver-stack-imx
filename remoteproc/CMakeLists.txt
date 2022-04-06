@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021 Arm Limited. All rights reserved.
+# Copyright (c) 2020-2022 Arm Limited. All rights reserved.
 #
 # This program is free software and is provided to you under the terms of the
 # GNU General Public License version 2 as published by the Free Software
@@ -36,7 +36,7 @@ file(GLOB_RECURSE OBJ RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "*.c")
 list(TRANSFORM OBJ REPLACE "^(.*)[.]c" "\\1.o")
 list(TRANSFORM OBJ PREPEND ${CMAKE_CURRENT_SOURCE_DIR}/)
 
-set(MODULES CONFIG_ARM_ETHOSU_RPROC=m CONFIG_ARM_SGM775_ETHOSU_RESET=m CONFIG_ARM_JUNO_FPGA_RESET=m)
+set(MODULES CONFIG_ARM_ETHOSU_RPROC=m CONFIG_ARM_SGM775_ETHOSU_RESET=m CONFIG_ARM_JUNO_FPGA_RESET=m CONFIG_ARM_CORSTONE1000_ES_RESET=m)
 
 # Build the kernel module
 add_custom_target(ethosu-remoteproc-module ALL
@@ -55,3 +55,4 @@ add_custom_target(ethosu-remoteproc-module ALL
                   VERBATIM)
 
 install(FILES ethosu_remoteproc.ko DESTINATION "modules")
+install(FILES corstone1000_es_reset.ko DESTINATION "modules")
