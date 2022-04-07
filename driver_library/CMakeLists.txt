@@ -24,11 +24,10 @@ project("driver_library" VERSION 1.0.0 LANGUAGES C CXX)
 # Build the driver library
 add_library(ethosu STATIC "src/ethosu.cpp")
 
-# Add public include directory and select which files to install 
+# Add public include directory and select which files to install
 target_include_directories(ethosu PUBLIC "include")
 set_target_properties(ethosu PROPERTIES PUBLIC_HEADER "include/ethosu.hpp")
 set_target_properties(ethosu PROPERTIES VERSION ${PROJECT_VERSION})
-target_link_libraries(ethosu PRIVATE flatbuffers)
 
 # Install library and public headers
 install(TARGETS ethosu

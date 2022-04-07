@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021 Arm Limited. All rights reserved.
+# Copyright (c) 2020-2022 Arm Limited. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -53,16 +53,6 @@ endif()
 if (BUILD_REMOTEPROC)
     add_subdirectory(remoteproc)
 endif()
-
-# Build flatbuffers
-unset(PROJECT_VERSION)
-unset(PROJECT_VERSION_MAJOR)
-unset(PROJECT_VERSION_MINOR)
-option(FLATBUFFERS_BUILD_TESTS OFF)
-option(FLATBUFFERS_INSTALL OFF)
-option(FLATBUFFERS_BUILD_FLATC OFF)
-option(FLATBUFFERS_BUILD_FLATHASH OFF)
-add_subdirectory(flatbuffers)
 
 # Build driver library
 add_subdirectory(driver_library)

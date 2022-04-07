@@ -172,7 +172,7 @@ public:
     size_t getOfmSize() const;
 
 private:
-    void parseModel(const char *data);
+    void collectNetworkInfo();
 
     int fd;
     std::shared_ptr<Buffer> buffer;
