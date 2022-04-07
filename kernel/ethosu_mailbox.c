@@ -304,7 +304,7 @@ void ethosu_mailbox_fail(struct ethosu_mailbox *mbox)
 	}
 }
 
-int ethosu_mailbox_resend(struct ethosu_mailbox *mbox)
+void ethosu_mailbox_resend(struct ethosu_mailbox *mbox)
 {
 	struct ethosu_mailbox_msg *cur, *cur_tmp;
 	int ret;
@@ -312,13 +312,11 @@ int ethosu_mailbox_resend(struct ethosu_mailbox *mbox)
 	list_for_each_entry_safe(cur, cur_tmp, &mbox->pending_list, list) {
 		ret = cur->resend(cur);
 		if (ret) {
+			dev_warn(mbox->dev, "Failed to resend msg. ret=%d",
+				 ret);
 			cur->fail(cur);
-
-			return ret;
 		}
 	}
-
-	return 0;
 }
 
 int ethosu_mailbox_ping(struct ethosu_mailbox *mbox)

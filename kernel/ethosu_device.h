@@ -89,4 +89,9 @@ int ethosu_dev_init(struct ethosu_device *edev,
  */
 void ethosu_dev_deinit(struct ethosu_device *edev);
 
+/**
+ * ethosu_firmware_reset() - Reset the device running firmware
+ */
+int ethosu_firmware_reset(struct ethosu_device *edev);
+
 #endif /* ETHOSU_DEVICE_H */

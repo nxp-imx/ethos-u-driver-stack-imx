@@ -138,9 +138,8 @@ void ethosu_mailbox_fail(struct ethosu_mailbox *mbox);
  *
  * Call resend() callback on all messages in pending list.
  *
- * Return: 0 on success, else error code.
  */
-int ethosu_mailbox_resend(struct ethosu_mailbox *mbox);
+void ethosu_mailbox_resend(struct ethosu_mailbox *mbox);
 
 /**
  * ethosu_mailbox_reset() - Reset to end of queue

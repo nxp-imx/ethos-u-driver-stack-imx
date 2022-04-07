@@ -83,6 +83,9 @@ static void ethosu_capabilities_fail(struct ethosu_mailbox_msg *msg)
 	struct ethosu_capabilities *cap =
 		container_of(msg, typeof(*cap), msg);
 
+	if (completion_done(&cap->done))
+		return;
+
 	cap->errno = -EFAULT;
 	complete(&cap->done);
 }
@@ -349,7 +352,7 @@ static int ethosu_handle_msg(struct ethosu_device *edev)
 	return ret;
 }
 
-static int ethosu_firmware_reset(struct ethosu_device *edev)
+int ethosu_firmware_reset(struct ethosu_device *edev)
 {
 	int ret;
 
@@ -361,8 +364,8 @@ static int ethosu_firmware_reset(struct ethosu_device *edev)
 
 	ret = reset_control_assert(edev->reset);
 	if (ret) {
-		dev_warn(edev->dev, "Failed to reset assert firmware. ret=%d",
-			 ret);
+		dev_err(edev->dev, "Failed to reset assert firmware. ret=%d",
+			ret);
 
 		return ret;
 	}
@@ -375,16 +378,16 @@ static int ethosu_firmware_reset(struct ethosu_device *edev)
 	 */
 	ret = reset_control_deassert(edev->reset);
 	if (ret) {
-		dev_warn(edev->dev, "Failed to reset deassert firmware. ret=%d",
-			 ret);
+		dev_err(edev->dev, "Failed to reset deassert firmware. ret=%d",
+			ret);
 		goto fail;
 	}
 
 	/* Wait for firmware to boot up and initialize mailbox */
 	ret = ethosu_mailbox_wait_firmware(&edev->mailbox);
 	if (ret) {
-		dev_warn(edev->dev, "Wait on firmware boot timed out. ret=%d",
-			 ret);
+		dev_err(edev->dev, "Wait on firmware boot timed out. ret=%d",
+			ret);
 		goto fail;
 	}
 
@@ -392,8 +395,12 @@ static int ethosu_firmware_reset(struct ethosu_device *edev)
 	ethosu_watchdog_reset(&edev->watchdog);
 
 	ret = ethosu_mailbox_ping(&edev->mailbox);
-	if (ret)
+	if (ret) {
+		dev_warn(edev->dev,
+			 "Failed to send ping after firmware reset. ret=%d",
+			 ret);
 		goto fail;
+	}
 
 	/* Resend messages */
 	ethosu_mailbox_resend(&edev->mailbox);

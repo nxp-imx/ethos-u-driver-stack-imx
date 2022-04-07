@@ -159,6 +159,15 @@ int ethosu_cancel_inference_request(struct ethosu_inference *inf,
 		goto put_kref;
 	}
 
+	/* if cancellation failed and the inference did not complete then reset
+	 * the firmware */
+	if (cancellation->uapi->status == ETHOSU_UAPI_STATUS_ERROR &&
+	    !cancellation->inf->done) {
+		ret = ethosu_firmware_reset(cancellation->edev);
+		if (ret)
+			goto put_kref;
+	}
+
 put_kref:
 	kref_put(&cancellation->kref, &ethosu_cancel_inference_destroy);
 
