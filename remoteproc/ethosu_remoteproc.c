@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Arm Limited. All rights reserved.
+ * Copyright (c) 2021-2022 Arm Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -93,15 +93,19 @@ static void ethosu_rproc_kick(struct rproc *rproc,
 	return;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 13, 0)
-static void *ethosu_da_to_va(struct rproc *rproc,
-			     u64 da,
-			     int len)
-#else
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 13, 0)
 static void *ethosu_da_to_va(struct rproc *rproc,
 			     u64 da,
 			     size_t len,
 			     bool *is_iomem)
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0) && LINUX_VERSION_CODE < KERNEL_VERSION(5, 13, 0)
+static void *ethosu_da_to_va(struct rproc *rproc,
+			     u64 da,
+			     size_t len)
+#else
+static void *ethosu_da_to_va(struct rproc *rproc,
+			     u64 da,
+			     int len)
 #endif
 {
 	struct ethosu_rproc *ethosu = (struct ethosu_rproc *)rproc->priv;
