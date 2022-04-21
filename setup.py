@@ -23,7 +23,7 @@ import os
 bind11_inc = pybind11.get_include()
 ethosu_inc = './driver_library/include/'
 
-wrapper = Extension('ethosu',
+wrapper = Extension('ethosu.interpreter',
                     include_dirs = [bind11_inc, ethosu_inc],
                     libraries = ['ethosu'],
                     library_dirs = ["."],

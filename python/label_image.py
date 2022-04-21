@@ -15,7 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import ethosu
+import ethosu.interpreter as ethosu
 import numpy as np
 import cv2
 from PIL import Image
