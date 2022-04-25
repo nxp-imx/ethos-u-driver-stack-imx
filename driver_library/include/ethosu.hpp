@@ -129,7 +129,7 @@ public:
 class Device {
 public:
     Device(const char *device = "/dev/ethosu0");
-    virtual ~Device();
+    virtual ~Device() noexcept(false);
 
     int ioctl(unsigned long cmd, void *data = nullptr) const;
     Capabilities capabilities() const;
@@ -141,7 +141,7 @@ private:
 class Buffer {
 public:
     Buffer(const Device &device, const size_t capacity);
-    virtual ~Buffer();
+    virtual ~Buffer() noexcept(false);
 
     size_t capacity() const;
     void clear() const;
@@ -162,7 +162,7 @@ class Network {
 public:
     Network(const Device &device, std::shared_ptr<Buffer> &buffer);
     Network(const Device &device, const unsigned index);
-    virtual ~Network();
+    virtual ~Network() noexcept(false);
 
     int ioctl(unsigned long cmd, void *data = nullptr);
     std::shared_ptr<Buffer> getBuffer();
@@ -215,7 +215,7 @@ public:
         create(counterConfigs, enableCycleCounter);
     }
 
-    virtual ~Inference();
+    virtual ~Inference() noexcept(false);
 
     int wait(int64_t timeoutNanos = -1) const;
     const std::vector<uint32_t> getPmuCounters() const;

@@ -148,7 +148,7 @@ Device::Device(const char *device) {
     fd = eopen(device, O_RDWR | O_NONBLOCK);
 }
 
-Device::~Device() {
+Device::~Device() noexcept(false) {
     eclose(fd);
 }
 
@@ -185,18 +185,21 @@ Buffer::Buffer(const Device &device, const size_t capacity) : fd(-1), dataPtr(nu
         try {
             eclose(fd);
         } catch (...) { std::throw_with_nested(e); }
+        throw;
     }
     dataPtr = reinterpret_cast<char *>(d);
 }
 
-Buffer::~Buffer() {
+Buffer::~Buffer() noexcept(false) {
     try {
         emunmap(dataPtr, dataCapacity);
     } catch (std::exception &e) {
         try {
             eclose(fd);
         } catch (...) { std::throw_with_nested(e); }
+        throw;
     }
+    eclose(fd);
 }
 
 size_t Buffer::capacity() const {
@@ -250,6 +253,7 @@ Network::Network(const Device &device, shared_ptr<Buffer> &buffer) : fd(-1), buf
         try {
             eclose(fd);
         } catch (...) { std::throw_with_nested(e); }
+        throw;
     }
 }
 
@@ -265,6 +269,7 @@ Network::Network(const Device &device, const unsigned index) : fd(-1) {
         try {
             eclose(fd);
         } catch (...) { std::throw_with_nested(e); }
+        throw;
     }
 }
 
@@ -281,7 +286,7 @@ void Network::collectNetworkInfo() {
     }
 }
 
-Network::~Network() {
+Network::~Network() noexcept(false) {
     eclose(fd);
 }
 
@@ -325,7 +330,7 @@ size_t Network::getOfmSize() const {
  * Inference
  ****************************************************************************/
 
-Inference::~Inference() {
+Inference::~Inference() noexcept(false) {
     eclose(fd);
 }
 
