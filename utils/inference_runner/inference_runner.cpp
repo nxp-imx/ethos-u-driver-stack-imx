@@ -254,17 +254,18 @@ int main(int argc, char *argv[]) {
 
         int ofmIndex = 0;
         for (auto &inference : inferences) {
+            cout << "Inference status: " << inference->status() << endl;
 
             /* make sure the wait completes ok */
             try {
+                cout << "Wait for inference" << endl;
                 inference->wait(timeout);
             } catch (std::exception &e) {
                 cout << "Failed to wait for inference completion: " << e.what() << endl;
                 exit(1);
             }
 
-            string status = inference->failed() ? "failed" : "success";
-            cout << "Inference status: " << status << endl;
+            cout << "Inference status: " << inference->status() << endl;
 
             string ofmFilename = ofmArg + "." + to_string(ofmIndex);
             ofstream ofmStream(ofmFilename, ios::binary);
@@ -273,7 +274,7 @@ int main(int argc, char *argv[]) {
                 exit(1);
             }
 
-            if (!inference->failed()) {
+            if (inference->status() == InferenceStatus::OK) {
                 /* The inference completed and has ok status */
                 for (auto &ofmBuffer : inference->getOfmBuffers()) {
                     cout << "OFM size: " << ofmBuffer->size() << endl;

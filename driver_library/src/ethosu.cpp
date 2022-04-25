@@ -330,6 +330,20 @@ size_t Network::getOfmSize() const {
  * Inference
  ****************************************************************************/
 
+ostream &operator<<(ostream &out, const InferenceStatus &status) {
+    switch (status) {
+    case InferenceStatus::OK:
+        return out << "ok";
+    case InferenceStatus::ERROR:
+        return out << "error";
+    case InferenceStatus::RUNNING:
+        return out << "running";
+    case InferenceStatus::REJECTED:
+        return out << "rejected";
+    }
+    throw Exception("Unknown inference status");
+}
+
 Inference::~Inference() noexcept(false) {
     eclose(fd);
 }
@@ -395,12 +409,23 @@ int Inference::wait(int64_t timeoutNanos) const {
     return eppoll(&pfd, 1, &tmo_p, NULL);
 }
 
-bool Inference::failed() const {
+InferenceStatus Inference::status() const {
     ethosu_uapi_result_status uapi;
 
     eioctl(fd, ETHOSU_IOCTL_INFERENCE_STATUS, static_cast<void *>(&uapi));
 
-    return uapi.status != ETHOSU_UAPI_STATUS_OK;
+    switch (uapi.status) {
+    case ETHOSU_UAPI_STATUS_OK:
+        return InferenceStatus::OK;
+    case ETHOSU_UAPI_STATUS_ERROR:
+        return InferenceStatus::ERROR;
+    case ETHOSU_UAPI_STATUS_RUNNING:
+        return InferenceStatus::RUNNING;
+    case ETHOSU_UAPI_STATUS_REJECTED:
+        return InferenceStatus::REJECTED;
+    }
+
+    throw Exception("Unknown inference status");
 }
 
 const std::vector<uint32_t> Inference::getPmuCounters() const {

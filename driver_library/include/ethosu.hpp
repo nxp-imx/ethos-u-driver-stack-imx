@@ -180,6 +180,15 @@ private:
     std::vector<size_t> ofmDims;
 };
 
+enum class InferenceStatus {
+    OK,
+    ERROR,
+    RUNNING,
+    REJECTED,
+};
+
+std::ostream &operator<<(std::ostream &out, const InferenceStatus &v);
+
 class Inference {
 public:
     template <typename T>
@@ -220,7 +229,7 @@ public:
     int wait(int64_t timeoutNanos = -1) const;
     const std::vector<uint32_t> getPmuCounters() const;
     uint64_t getCycleCounter() const;
-    bool failed() const;
+    InferenceStatus status() const;
     int getFd() const;
     const std::shared_ptr<Network> getNetwork() const;
     std::vector<std::shared_ptr<Buffer>> &getIfmBuffers();

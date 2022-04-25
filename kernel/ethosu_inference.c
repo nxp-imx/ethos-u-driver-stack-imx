@@ -70,6 +70,12 @@ static const char *status_to_string(const enum ethosu_uapi_status status)
 	case ETHOSU_UAPI_STATUS_ERROR: {
 		return "Error";
 	}
+	case ETHOSU_UAPI_STATUS_RUNNING: {
+		return "Running";
+	}
+	case ETHOSU_UAPI_STATUS_REJECTED: {
+		return "Rejected";
+	}
 	default: {
 		return "Unknown";
 	}
@@ -92,6 +98,8 @@ static int ethosu_inference_send(struct ethosu_inference *inf)
 				       inf->pmu_cycle_counter_enable);
 	if (ret)
 		return ret;
+
+	inf->status = ETHOSU_UAPI_STATUS_RUNNING;
 
 	ethosu_inference_get(inf);
 
@@ -412,29 +420,33 @@ void ethosu_inference_rsp(struct ethosu_device *edev,
 			if (ret)
 				inf->status = ETHOSU_UAPI_STATUS_ERROR;
 		}
+	} else if (rsp->status == ETHOSU_CORE_STATUS_REJECTED) {
+		inf->status = ETHOSU_UAPI_STATUS_REJECTED;
 	} else {
 		inf->status = ETHOSU_UAPI_STATUS_ERROR;
 	}
 
-	for (i = 0; i < ETHOSU_CORE_PMU_MAX; i++) {
-		inf->pmu_event_config[i] = rsp->pmu_event_config[i];
-		inf->pmu_event_count[i] = rsp->pmu_event_count[i];
+	if (inf->status == ETHOSU_UAPI_STATUS_OK) {
+		for (i = 0; i < ETHOSU_CORE_PMU_MAX; i++) {
+			inf->pmu_event_config[i] = rsp->pmu_event_config[i];
+			inf->pmu_event_count[i] = rsp->pmu_event_count[i];
+		}
+
+		inf->pmu_cycle_counter_enable = rsp->pmu_cycle_counter_enable;
+		inf->pmu_cycle_counter_count = rsp->pmu_cycle_counter_count;
+
+		dev_info(edev->dev,
+			 "PMU events. config=[%u, %u, %u, %u], count=[%u, %u, %u, %u]\n",
+			 inf->pmu_event_config[0], inf->pmu_event_config[1],
+			 inf->pmu_event_config[2], inf->pmu_event_config[3],
+			 inf->pmu_event_count[0], inf->pmu_event_count[1],
+			 inf->pmu_event_count[2], inf->pmu_event_count[3]);
+
+		dev_info(edev->dev,
+			 "PMU cycle counter. enable=%u, count=%llu\n",
+			 inf->pmu_cycle_counter_enable,
+			 inf->pmu_cycle_counter_count);
 	}
-
-	inf->pmu_cycle_counter_enable = rsp->pmu_cycle_counter_enable;
-	inf->pmu_cycle_counter_count = rsp->pmu_cycle_counter_count;
-
-	dev_info(edev->dev,
-		 "PMU events. config=[%u, %u, %u, %u], count=[%u, %u, %u, %u]\n",
-		 inf->pmu_event_config[0], inf->pmu_event_config[1],
-		 inf->pmu_event_config[2], inf->pmu_event_config[3],
-		 inf->pmu_event_count[0], inf->pmu_event_count[1],
-		 inf->pmu_event_count[2], inf->pmu_event_count[3]);
-
-	dev_info(edev->dev,
-		 "PMU cycle counter. enable=%u, count=%llu\n",
-		 inf->pmu_cycle_counter_enable,
-		 inf->pmu_cycle_counter_count);
 
 	inf->done = true;
 	wake_up_interruptible(&inf->waitq);

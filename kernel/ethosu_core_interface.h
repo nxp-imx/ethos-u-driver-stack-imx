@@ -95,7 +95,9 @@ struct ethosu_core_queue {
  */
 enum ethosu_core_status {
 	ETHOSU_CORE_STATUS_OK,
-	ETHOSU_CORE_STATUS_ERROR
+	ETHOSU_CORE_STATUS_ERROR,
+	ETHOSU_CORE_STATUS_RUNNING,
+	ETHOSU_CORE_STATUS_REJECTED,
 };
 
 /**
