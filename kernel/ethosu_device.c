@@ -26,13 +26,13 @@
 
 #include "ethosu_buffer.h"
 #include "ethosu_core_interface.h"
+#include "ethosu_capabilities.h"
 #include "ethosu_inference.h"
 #include "ethosu_cancel_inference.h"
 #include "ethosu_network.h"
 #include "ethosu_network_info.h"
 #include "uapi/ethosu.h"
 
-#include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/errno.h>
 #include <linux/fs.h>
@@ -49,157 +49,9 @@
 
 #define DMA_ADDR_BITS 32 /* Number of address bits */
 
-#define CAPABILITIES_RESP_TIMEOUT_MS 2000
-
 /****************************************************************************
  * Functions
  ****************************************************************************/
-
-static void ethosu_capabilities_destroy(struct kref *kref)
-{
-	struct ethosu_capabilities *cap =
-		container_of(kref, struct ethosu_capabilities, refcount);
-
-	dev_info(cap->edev->dev, "Capabilities destroy. handle=0x%pK\n", cap);
-
-	list_del(&cap->msg.list);
-
-	devm_kfree(cap->edev->dev, cap);
-}
-
-static int ethosu_capabilities_send(struct ethosu_capabilities *cap)
-{
-	int ret;
-
-	ret = ethosu_mailbox_capabilities_request(&cap->edev->mailbox, cap);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
-static void ethosu_capabilities_fail(struct ethosu_mailbox_msg *msg)
-{
-	struct ethosu_capabilities *cap =
-		container_of(msg, typeof(*cap), msg);
-
-	if (completion_done(&cap->done))
-		return;
-
-	cap->errno = -EFAULT;
-	complete(&cap->done);
-}
-
-static int ethosu_capabilities_resend(struct ethosu_mailbox_msg *msg)
-{
-	struct ethosu_capabilities *cap =
-		container_of(msg, typeof(*cap), msg);
-	int ret;
-
-	/* Don't resend request if response has already been received */
-	if (completion_done(&cap->done))
-		return 0;
-
-	/* Resend request */
-	ret = ethosu_capabilities_send(cap);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
-static void ethosu_capability_rsp(struct ethosu_device *edev,
-				  struct ethosu_core_msg_capabilities_rsp *msg)
-{
-	struct ethosu_capabilities *cap =
-		(struct ethosu_capabilities *)msg->user_arg;
-	struct ethosu_uapi_device_capabilities *capabilities;
-	int ret;
-
-	ret = ethosu_mailbox_find(&edev->mailbox, &cap->msg);
-	if (ret) {
-		dev_warn(edev->dev,
-			 "Capabilities not found in pending list. handle=0x%p\n",
-			 cap);
-
-		return;
-	}
-
-	if (completion_done(&cap->done))
-		return;
-
-	capabilities = cap->capabilities;
-
-	capabilities->hw_id.version_status = msg->version_status;
-	capabilities->hw_id.version_minor = msg->version_minor;
-	capabilities->hw_id.version_major = msg->version_major;
-	capabilities->hw_id.product_major = msg->product_major;
-	capabilities->hw_id.arch_patch_rev = msg->arch_patch_rev;
-	capabilities->hw_id.arch_minor_rev = msg->arch_minor_rev;
-	capabilities->hw_id.arch_major_rev = msg->arch_major_rev;
-	capabilities->driver_patch_rev = msg->driver_patch_rev;
-	capabilities->driver_minor_rev = msg->driver_minor_rev;
-	capabilities->driver_major_rev = msg->driver_major_rev;
-	capabilities->hw_cfg.macs_per_cc = msg->macs_per_cc;
-	capabilities->hw_cfg.cmd_stream_version = msg->cmd_stream_version;
-	capabilities->hw_cfg.custom_dma = msg->custom_dma;
-
-	cap->errno = 0;
-	complete(&cap->done);
-}
-
-static int ethosu_capabilities_request(struct ethosu_device *edev,
-				       void __user *udata)
-{
-	struct ethosu_uapi_device_capabilities uapi;
-	struct ethosu_capabilities *cap;
-	int ret;
-	int timeout;
-
-	cap = devm_kzalloc(edev->dev, sizeof(struct ethosu_capabilities),
-			   GFP_KERNEL);
-	if (!cap)
-		return -ENOMEM;
-
-	cap->edev = edev;
-	cap->capabilities = &uapi;
-	kref_init(&cap->refcount);
-	init_completion(&cap->done);
-	list_add(&cap->msg.list, &edev->mailbox.pending_list);
-	cap->msg.fail = ethosu_capabilities_fail;
-	cap->msg.resend = ethosu_capabilities_resend;
-
-	ret = ethosu_capabilities_send(cap);
-	if (0 != ret)
-		goto put_kref;
-
-	/* Unlock the mutex before going to block on the condition */
-	mutex_unlock(&edev->mutex);
-
-	/* wait for response to arrive back */
-	timeout = wait_for_completion_timeout(&cap->done,
-					      msecs_to_jiffies(
-						      CAPABILITIES_RESP_TIMEOUT_MS));
-
-	/* take back the mutex before resuming to do anything */
-	mutex_lock(&edev->mutex);
-
-	if (0 == timeout) {
-		dev_warn(edev->dev, "Capabilities response timeout");
-		ret = -EIO;
-		goto put_kref;
-	}
-
-	if (cap->errno)
-		goto put_kref;
-
-	ret = copy_to_user(udata, &uapi, sizeof(uapi)) ? -EFAULT : 0;
-
-put_kref:
-	kref_put(&cap->refcount, ethosu_capabilities_destroy);
-
-	return ret;
-}
 
 /* Incoming messages */
 static int ethosu_handle_msg(struct ethosu_device *edev)
@@ -463,10 +315,16 @@ static long ethosu_ioctl(struct file *file,
 		dev_info(edev->dev, "Ioctl: Send version request\n");
 		ret = ethosu_mailbox_version_request(&edev->mailbox);
 		break;
-	case ETHOSU_IOCTL_CAPABILITIES_REQ:
+	case ETHOSU_IOCTL_CAPABILITIES_REQ: {
+		struct ethosu_uapi_device_capabilities uapi;
 		dev_info(edev->dev, "Ioctl: Send capabilities request\n");
-		ret = ethosu_capabilities_request(edev, udata);
+		ret = ethosu_capabilities_request(edev, &uapi);
+		if (ret)
+			break;
+
+		ret = copy_to_user(udata, &uapi, sizeof(uapi)) ? -EFAULT : 0;
 		break;
+	}
 	case ETHOSU_IOCTL_PING: {
 		dev_info(edev->dev, "Ioctl: Send ping\n");
 		ret = ethosu_mailbox_ping(&edev->mailbox);

@@ -40,24 +40,12 @@
  * Functions
  ****************************************************************************/
 
-static void ethosu_cancel_inference_destroy(struct kref *kref)
-{
-	struct ethosu_cancel_inference *cancellation =
-		container_of(kref, struct ethosu_cancel_inference, kref);
-
-	dev_info(cancellation->edev->dev,
-		 "Cancel inference destroy. handle=0x%p\n", cancellation);
-	list_del(&cancellation->msg.list);
-	/* decrease the reference on the inference we are refering to */
-	ethosu_inference_put(cancellation->inf);
-	devm_kfree(cancellation->edev->dev, cancellation);
-}
-
 static int ethosu_cancel_inference_send(
 	struct ethosu_cancel_inference *cancellation)
 {
 	return ethosu_mailbox_cancel_inference(&cancellation->edev->mailbox,
-					       cancellation, cancellation->inf);
+					       &cancellation->msg,
+					       cancellation->inf->msg.id);
 }
 
 static void ethosu_cancel_inference_fail(struct ethosu_mailbox_msg *msg)
@@ -120,7 +108,6 @@ int ethosu_cancel_inference_request(struct ethosu_inference *inf,
 	cancellation->edev = inf->edev;
 	cancellation->inf = inf;
 	cancellation->uapi = uapi;
-	kref_init(&cancellation->kref);
 	init_completion(&cancellation->done);
 	cancellation->msg.fail = ethosu_cancel_inference_fail;
 
@@ -128,13 +115,18 @@ int ethosu_cancel_inference_request(struct ethosu_inference *inf,
 	 * whole firmware and marked the inference as aborted */
 	cancellation->msg.resend = ethosu_cancel_inference_complete;
 
-	/* Add cancel inference to pending list */
-	list_add(&cancellation->msg.list,
-		 &cancellation->edev->mailbox.pending_list);
+	ret = ethosu_mailbox_register(&cancellation->edev->mailbox,
+				      &cancellation->msg);
+	if (ret < 0)
+		goto kfree;
+
+	dev_info(cancellation->edev->dev,
+		 "Inference cancellation create. Id=%d, handle=0x%p\n",
+		 cancellation->msg.id, cancellation);
 
 	ret = ethosu_cancel_inference_send(cancellation);
 	if (0 != ret)
-		goto put_kref;
+		goto deregister;
 
 	/* Unlock the mutex before going to block on the condition */
 	mutex_unlock(&cancellation->edev->mutex);
@@ -145,18 +137,18 @@ int ethosu_cancel_inference_request(struct ethosu_inference *inf,
 	/* take back the mutex before resuming to do anything */
 	ret = mutex_lock_interruptible(&cancellation->edev->mutex);
 	if (0 != ret)
-		goto put_kref;
+		goto deregister;
 
 	if (0 == timeout /* timed out*/) {
 		dev_warn(inf->edev->dev,
 			 "Msg: Cancel Inference response lost - timeout\n");
 		ret = -EIO;
-		goto put_kref;
+		goto deregister;
 	}
 
 	if (cancellation->errno) {
 		ret = cancellation->errno;
-		goto put_kref;
+		goto deregister;
 	}
 
 	/* if cancellation failed and the inference did not complete then reset
@@ -165,11 +157,19 @@ int ethosu_cancel_inference_request(struct ethosu_inference *inf,
 	    !cancellation->inf->done) {
 		ret = ethosu_firmware_reset(cancellation->edev);
 		if (ret)
-			goto put_kref;
+			goto deregister;
 	}
 
-put_kref:
-	kref_put(&cancellation->kref, &ethosu_cancel_inference_destroy);
+deregister:
+	ethosu_mailbox_deregister(&cancellation->edev->mailbox,
+				  &cancellation->msg);
+
+kfree:
+	dev_info(cancellation->edev->dev,
+		 "Cancel inference destroy. handle=0x%p\n", cancellation);
+	/* decrease the reference on the inference we are refering to */
+	ethosu_inference_put(cancellation->inf);
+	devm_kfree(cancellation->edev->dev, cancellation);
 
 	return ret;
 }
@@ -177,18 +177,20 @@ put_kref:
 void ethosu_cancel_inference_rsp(struct ethosu_device *edev,
 				 struct ethosu_core_cancel_inference_rsp *rsp)
 {
-	struct ethosu_cancel_inference *cancellation =
-		(struct ethosu_cancel_inference *)rsp->user_arg;
-	int ret;
+	int id = (int)rsp->user_arg;
+	struct ethosu_mailbox_msg *msg;
+	struct ethosu_cancel_inference *cancellation;
 
-	ret = ethosu_mailbox_find(&edev->mailbox, &cancellation->msg);
-	if (ret) {
+	msg = ethosu_mailbox_find(&edev->mailbox, id);
+	if (IS_ERR(msg)) {
 		dev_warn(edev->dev,
 			 "Handle not found in cancel inference list. handle=0x%p\n",
 			 rsp);
 
 		return;
 	}
+
+	cancellation = container_of(msg, typeof(*cancellation), msg);
 
 	if (completion_done(&cancellation->done))
 		return;

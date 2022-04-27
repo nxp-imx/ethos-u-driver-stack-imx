@@ -33,8 +33,6 @@
 #include <linux/cdev.h>
 #include <linux/io.h>
 #include <linux/mutex.h>
-#include <linux/workqueue.h>
-#include <linux/completion.h>
 
 /****************************************************************************
  * Types
@@ -54,18 +52,6 @@ struct ethosu_device {
 	struct ethosu_mailbox  mailbox;
 	struct ethosu_watchdog watchdog;
 	struct reset_control   *reset;
-};
-
-/**
- * struct ethosu_capabilities - Capabilities internal struct
- */
-struct ethosu_capabilities {
-	struct ethosu_device                   *edev;
-	struct completion                      done;
-	struct kref                            refcount;
-	struct ethosu_uapi_device_capabilities *capabilities;
-	struct ethosu_mailbox_msg              msg;
-	int                                    errno;
 };
 
 /****************************************************************************

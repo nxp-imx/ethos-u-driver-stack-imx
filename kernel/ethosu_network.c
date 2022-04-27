@@ -88,30 +88,6 @@ static int ethosu_network_release(struct inode *inode,
 	return 0;
 }
 
-static int ethosu_network_info_request(struct ethosu_network *net,
-				       struct ethosu_uapi_network_info *uapi)
-{
-	struct ethosu_network_info *info;
-	int ret;
-
-	/* Create network info request */
-	info = ethosu_network_info_create(net->edev, net, uapi);
-	if (IS_ERR(info))
-		return PTR_ERR(info);
-
-	/* Unlock the device mutex and wait for completion */
-	mutex_unlock(&net->edev->mutex);
-	ret = ethosu_network_info_wait(info, 3000);
-	mutex_lock(&net->edev->mutex);
-
-	if (ret)
-		info->msg.fail(&info->msg);
-
-	ethosu_network_info_put(info);
-
-	return ret;
-}
-
 static long ethosu_network_ioctl(struct file *file,
 				 unsigned int cmd,
 				 unsigned long arg)

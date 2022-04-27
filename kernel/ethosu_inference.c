@@ -95,7 +95,7 @@ static int ethosu_inference_send(struct ethosu_inference *inf)
 
 	inf->status = ETHOSU_UAPI_STATUS_ERROR;
 
-	ret = ethosu_mailbox_inference(&inf->edev->mailbox, inf,
+	ret = ethosu_mailbox_inference(&inf->edev->mailbox, &inf->msg,
 				       inf->ifm_count, inf->ifm,
 				       inf->ofm_count, inf->ofm,
 				       inf->net->buf,
@@ -180,7 +180,7 @@ static void ethosu_inference_kref_destroy(struct kref *kref)
 		 "Inference destroy. handle=0x%pK, status=%d\n",
 		 inf, inf->status);
 
-	list_del(&inf->msg.list);
+	ethosu_mailbox_deregister(&inf->edev->mailbox, &inf->msg);
 
 	while (inf->ifm_count-- > 0)
 		ethosu_buffer_put(inf->ifm[inf->ifm_count]);
@@ -307,6 +307,11 @@ int ethosu_inference_create(struct ethosu_device *edev,
 	inf->msg.fail = ethosu_inference_fail;
 	inf->msg.resend = ethosu_inference_resend;
 
+	/* Add inference to pending list */
+	ret = ethosu_mailbox_register(&edev->mailbox, &inf->msg);
+	if (ret < 0)
+		goto kfree;
+
 	/* Get pointer to IFM buffers */
 	for (i = 0; i < uapi->ifm_count; i++) {
 		inf->ifm[i] = ethosu_buffer_get_from_fd(uapi->ifm_fd[i]);
@@ -361,14 +366,13 @@ int ethosu_inference_create(struct ethosu_device *edev,
 	inf->file = fget(ret);
 	fput(inf->file);
 
-	/* Add inference to pending list */
-	list_add(&inf->msg.list, &edev->mailbox.pending_list);
-
 	/* Send inference request to Arm Ethos-U subsystem */
-	(void)ethosu_inference_send(inf);
+	ret = ethosu_inference_send(inf);
+	if (ret)
+		goto put_net;
 
-	dev_info(edev->dev, "Inference create. handle=0x%pK, fd=%d",
-		 inf, fd);
+	dev_info(edev->dev, "Inference create. Id=%d, handle=0x%p, fd=%d",
+		 inf->msg.id, inf, fd);
 
 	return fd;
 
@@ -383,6 +387,7 @@ put_ifm:
 	while (inf->ifm_count-- > 0)
 		ethosu_buffer_put(inf->ifm[inf->ifm_count]);
 
+kfree:
 	devm_kfree(edev->dev, inf);
 
 	return ret;
@@ -423,19 +428,22 @@ int ethosu_inference_put(struct ethosu_inference *inf)
 void ethosu_inference_rsp(struct ethosu_device *edev,
 			  struct ethosu_core_inference_rsp *rsp)
 {
-	struct ethosu_inference *inf =
-		(struct ethosu_inference *)rsp->user_arg;
+	int id = (int)rsp->user_arg;
+	struct ethosu_mailbox_msg *msg;
+	struct ethosu_inference *inf;
 	int ret;
 	int i;
 
-	ret = ethosu_mailbox_find(&edev->mailbox, &inf->msg);
-	if (ret) {
+	msg = ethosu_mailbox_find(&edev->mailbox, id);
+	if (IS_ERR(msg)) {
 		dev_warn(edev->dev,
-			 "Handle not found in inference list. handle=0x%p\n",
-			 rsp);
+			 "Id for inference msg not found. Id=%d\n",
+			 id);
 
 		return;
 	}
+
+	inf = container_of(msg, typeof(*inf), msg);
 
 	if (rsp->status == ETHOSU_CORE_STATUS_OK &&
 	    inf->ofm_count <= ETHOSU_CORE_BUFFER_MAX) {

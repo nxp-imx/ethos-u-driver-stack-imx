@@ -28,7 +28,6 @@
 #include "ethosu_core_interface.h"
 #include "ethosu_mailbox.h"
 
-#include <linux/kref.h>
 #include <linux/types.h>
 #include <linux/completion.h>
 
@@ -44,7 +43,6 @@ struct ethosu_network_info {
 	struct ethosu_device            *edev;
 	struct ethosu_network           *net;
 	struct ethosu_uapi_network_info *uapi;
-	struct kref                     kref;
 	struct completion               done;
 	int                             errno;
 	struct ethosu_mailbox_msg       msg;
@@ -55,34 +53,14 @@ struct ethosu_network_info {
  ****************************************************************************/
 
 /**
- * ethosu_network_info_create() - Create network info
+ * ethosu_network_info_request() - Send a network info request
  *
  * This function must be called in the context of a user space process.
  *
- * Return: Valid pointer on success, else ERR_PTR.
+ * Return: 0 on success, .
  */
-struct ethosu_network_info *ethosu_network_info_create(
-	struct ethosu_device *edev,
-	struct ethosu_network *net,
-	struct ethosu_uapi_network_info *uapi);
-
-/**
- * ethosu_network_info_get() - Get network info
- */
-void ethosu_network_info_get(struct ethosu_network_info *info);
-
-/**
- * ethosu_network_info_put() - Put network info
- *
- * Return: 1 if object was removed, else 0.
- */
-int ethosu_network_info_put(struct ethosu_network_info *info);
-
-/**
- * ethosu_network_info_wait() - Get network info
- */
-int ethosu_network_info_wait(struct ethosu_network_info *info,
-			     int timeout);
+int ethosu_network_info_request(struct ethosu_network *net,
+				struct ethosu_uapi_network_info *uapi);
 
 /**
  * ethosu_network_info_rsp() - Handle network info response.

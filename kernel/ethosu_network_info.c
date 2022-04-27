@@ -29,37 +29,15 @@
 #include "ethosu_mailbox.h"
 #include "uapi/ethosu.h"
 
-/****************************************************************************
- * Functions
- ****************************************************************************/
+#define NETWORK_INFO_RESP_TIMEOUT_MS 3000
 
-static void ethosu_network_info_destroy(struct kref *kref)
+static inline int ethosu_network_info_send(struct ethosu_network_info *info)
 {
-	struct ethosu_network_info *info =
-		container_of(kref, struct ethosu_network_info, kref);
-
-	dev_info(info->edev->dev, "Network info destroy. handle=0x%pK\n", info);
-
-	list_del(&info->msg.list);
-
-	ethosu_network_put(info->net);
-
-	devm_kfree(info->edev->dev, info);
-}
-
-static int ethosu_network_info_send(struct ethosu_network_info *info)
-{
-	int ret;
-
 	/* Send network info request to firmware */
-	ret = ethosu_mailbox_network_info_request(&info->edev->mailbox,
-						  info,
-						  info->net->buf,
-						  info->net->index);
-	if (ret)
-		return ret;
-
-	return 0;
+	return ethosu_mailbox_network_info_request(&info->edev->mailbox,
+						   &info->msg,
+						   info->net->buf,
+						   info->net->index);
 }
 
 static void ethosu_network_info_fail(struct ethosu_mailbox_msg *msg)
@@ -92,90 +70,83 @@ static int ethosu_network_info_resend(struct ethosu_mailbox_msg *msg)
 	return 0;
 }
 
-struct ethosu_network_info *ethosu_network_info_create(
-	struct ethosu_device *edev,
-	struct ethosu_network *net,
-	struct ethosu_uapi_network_info *uapi)
+int ethosu_network_info_request(struct ethosu_network *net,
+				struct ethosu_uapi_network_info *uapi)
 {
 	struct ethosu_network_info *info;
 	int ret;
+	int timeout;
 
-	info = devm_kzalloc(edev->dev, sizeof(*info), GFP_KERNEL);
+	info = devm_kzalloc(net->edev->dev, sizeof(*info), GFP_KERNEL);
 	if (!info)
-		return ERR_PTR(-ENOMEM);
+		return -ENOMEM;
 
-	info->edev = edev;
+	info->edev = net->edev;
 	info->net = net;
 	info->uapi = uapi;
-	kref_init(&info->kref);
 	init_completion(&info->done);
 	info->msg.fail = ethosu_network_info_fail;
 	info->msg.resend = ethosu_network_info_resend;
 
-	/* Insert network info to network info list */
-	list_add(&info->msg.list, &edev->mailbox.pending_list);
+	ret = ethosu_mailbox_register(&info->edev->mailbox, &info->msg);
+	if (ret < 0)
+		goto kfree;
 
 	/* Get reference to network */
-	ethosu_network_get(net);
+	ethosu_network_get(info->net);
 
 	ret = ethosu_network_info_send(info);
 	if (ret)
-		goto put_info;
+		goto deregister;
 
-	dev_info(edev->dev, "Network info create. handle=%p\n", info);
+	dev_info(info->edev->dev, "Network info create. Id=%d, handle=0x%p\n\n",
+		 info->msg.id, info);
 
-	return info;
-
-put_info:
-	ethosu_network_info_put(info);
-
-	return ERR_PTR(ret);
-}
-
-void ethosu_network_info_get(struct ethosu_network_info *info)
-{
-	kref_get(&info->kref);
-}
-
-int ethosu_network_info_put(struct ethosu_network_info *info)
-{
-	return kref_put(&info->kref, ethosu_network_info_destroy);
-}
-
-int ethosu_network_info_wait(struct ethosu_network_info *info,
-			     int timeout_ms)
-{
-	int timeout;
-
+	/* Unlock the device mutex and wait for completion */
+	mutex_unlock(&info->edev->mutex);
 	timeout = wait_for_completion_timeout(&info->done,
-					      msecs_to_jiffies(timeout_ms));
+					      msecs_to_jiffies(
+						      NETWORK_INFO_RESP_TIMEOUT_MS));
+	mutex_lock(&info->edev->mutex);
 
-	if (!timeout) {
-		dev_warn(info->edev->dev,
-			 "Network info timed out.");
+	if (0 == timeout) {
+		dev_warn(info->edev->dev, "Network info timed out.");
 
-		return -ETIME;
+		ret = -ETIME;
+		goto deregister;
 	}
 
-	return info->errno;
+deregister:
+	ethosu_mailbox_deregister(&info->edev->mailbox, &info->msg);
+	ethosu_network_put(info->net);
+
+kfree:
+	dev_info(info->edev->dev, "Network info destroy. Id=%d, handle=0x%p\n",
+		 info->msg.id, info);
+	devm_kfree(info->edev->dev, info);
+
+	return ret;
 }
 
 void ethosu_network_info_rsp(struct ethosu_device *edev,
 			     struct ethosu_core_network_info_rsp *rsp)
 {
-	struct ethosu_network_info *info =
-		(struct ethosu_network_info *)rsp->user_arg;
-	uint32_t i;
 	int ret;
+	int id = (int)rsp->user_arg;
+	struct ethosu_mailbox_msg *msg;
+	struct ethosu_network_info *info;
+	uint32_t i;
 
-	ret = ethosu_mailbox_find(&edev->mailbox, &info->msg);
-	if (0 != ret) {
+	msg = ethosu_mailbox_find(&edev->mailbox, id);
+	if (IS_ERR(msg)) {
 		dev_warn(edev->dev,
-			 "Handle not found in network info list. handle=0x%p\n",
-			 info);
+			 "Id for network info msg not found. Id=%d\n",
+			 id);
 
 		return;
 	}
+
+	info = container_of(msg, typeof(*info), msg);
 
 	if (completion_done(&info->done))
 		return;

@@ -29,6 +29,7 @@
 #include <linux/types.h>
 #include <linux/mailbox_client.h>
 #include <linux/workqueue.h>
+#include <linux/idr.h>
 
 /****************************************************************************
  * Types
@@ -55,15 +56,15 @@ struct ethosu_mailbox {
 	struct mbox_chan         *tx;
 	ethosu_mailbox_cb        callback;
 	void                     *user_arg;
-	struct list_head         pending_list;
+	struct idr               msg_idr;
 	struct ethosu_watchdog   *wdog;
 	unsigned                 ping_count;
 };
 
 struct ethosu_mailbox_msg {
-	struct list_head list;
-	void             (*fail)(struct ethosu_mailbox_msg *msg);
-	int              (*resend)(struct ethosu_mailbox_msg *msg);
+	int  id;
+	void (*fail)(struct ethosu_mailbox_msg *msg);
+	int  (*resend)(struct ethosu_mailbox_msg *msg);
 };
 
 /****************************************************************************
@@ -119,12 +120,26 @@ int ethosu_mailbox_read(struct ethosu_mailbox *mbox,
 			size_t length);
 
 /**
- * ethosu_mailbox_find() - Find mailbox message
+ * ethosu_mailbox_register() - Register the ethosu_mailbox_msg in ethosu_mailbox
  *
  * Return: 0 on success, else error code.
  */
-int ethosu_mailbox_find(struct ethosu_mailbox *mbox,
-			struct ethosu_mailbox_msg *msg);
+int ethosu_mailbox_register(struct ethosu_mailbox *mbox,
+			    struct ethosu_mailbox_msg *msg);
+
+/**
+ * ethosu_mailbox_free_id() - Free the id of the ethosu_mailbox_msg
+ */
+void ethosu_mailbox_deregister(struct ethosu_mailbox *mbox,
+			       struct ethosu_mailbox_msg *msg);
+
+/**
+ * ethosu_mailbox_find() - Find mailbox message
+ *
+ * Return: a valid pointer on success, otherwise an error ptr.
+ */
+struct ethosu_mailbox_msg *ethosu_mailbox_find(struct ethosu_mailbox *mbox,
+					       int msg_id);
 
 /**
  * ethosu_mailbox_fail() - Fail mailbox messages
@@ -137,7 +152,6 @@ void ethosu_mailbox_fail(struct ethosu_mailbox *mbox);
  * ethosu_mailbox_resend() - Resend mailbox messages
  *
  * Call resend() callback on all messages in pending list.
- *
  */
 void ethosu_mailbox_resend(struct ethosu_mailbox *mbox);
 
@@ -173,7 +187,7 @@ int ethosu_mailbox_version_request(struct ethosu_mailbox *mbox);
  * Return: 0 on success, else error code.
  */
 int ethosu_mailbox_capabilities_request(struct ethosu_mailbox *mbox,
-					void *user_arg);
+					struct ethosu_mailbox_msg *msg);
 
 /**
  * ethosu_mailbox_inference() - Send inference
@@ -181,7 +195,7 @@ int ethosu_mailbox_capabilities_request(struct ethosu_mailbox *mbox,
  * Return: 0 on success, else error code.
  */
 int ethosu_mailbox_inference(struct ethosu_mailbox *mbox,
-			     void *user_arg,
+			     struct ethosu_mailbox_msg *msg,
 			     uint32_t ifm_count,
 			     struct ethosu_buffer **ifm,
 			     uint32_t ofm_count,
@@ -198,7 +212,7 @@ int ethosu_mailbox_inference(struct ethosu_mailbox *mbox,
  * Return: 0 on success, else error code.
  */
 int ethosu_mailbox_network_info_request(struct ethosu_mailbox *mbox,
-					void *user_arg,
+					struct ethosu_mailbox_msg *msg,
 					struct ethosu_buffer *network,
 					uint32_t network_index);
 
@@ -208,7 +222,7 @@ int ethosu_mailbox_network_info_request(struct ethosu_mailbox *mbox,
  * Return: 0 on success, else error code.
  */
 int ethosu_mailbox_cancel_inference(struct ethosu_mailbox *mbox,
-				    void *user_arg,
-				    void *inference_handle);
+				    struct ethosu_mailbox_msg *msg,
+				    int inference_handle);
 
 #endif /* ETHOSU_MAILBOX_H */

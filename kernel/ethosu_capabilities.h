@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 ARM Limited.
+ * Copyright (c) 2022 Arm Limited.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -18,15 +18,15 @@
  * SPDX-License-Identifier: GPL-2.0-only
  */
 
-#ifndef ETHOSU_CANCEL_INFERENCE_H
-#define ETHOSU_CANCEL_INFERENCE_H
+#ifndef ETHOSU_CAPABILITIES_H
+#define ETHOSU_CAPABILITIES_H
 
 /****************************************************************************
  * Includes
  ****************************************************************************/
 
+#include "ethosu_core_interface.h"
 #include "ethosu_mailbox.h"
-#include "uapi/ethosu.h"
 
 #include <linux/types.h>
 #include <linux/completion.h>
@@ -35,36 +35,28 @@
  * Types
  ****************************************************************************/
 
-struct ethosu_core_cancel_inference_rsp;
 struct ethosu_device;
-struct ethosu_uapi_cancel_inference_status;
-struct ethosu_inference;
+struct ethosu_uapi_device_capabilities;
 
-struct ethosu_cancel_inference {
-	struct ethosu_device                       *edev;
-	struct ethosu_inference                    *inf;
-	struct ethosu_uapi_cancel_inference_status *uapi;
-	struct completion                          done;
-	struct ethosu_mailbox_msg                  msg;
-	int                                        errno;
+/**
+ * struct ethosu_capabilities - Capabilities internal struct
+ */
+struct ethosu_capabilities {
+	struct ethosu_device                   *edev;
+	struct completion                      done;
+	struct ethosu_uapi_device_capabilities *uapi;
+	struct ethosu_mailbox_msg              msg;
+	int                                    errno;
 };
 
 /****************************************************************************
  * Functions
  ****************************************************************************/
 
-/**
- * ethosu_cancel_inference_request() - Send cancel inference request
- *
- * Return: 0 on success, error code otherwise.
- */
-int ethosu_cancel_inference_request(struct ethosu_inference *inf,
-				    struct ethosu_uapi_cancel_inference_status *uapi);
+int ethosu_capabilities_request(struct ethosu_device *edev,
+				struct ethosu_uapi_device_capabilities *uapi);
 
-/**
- * ethosu_cancel_inference_rsp() - Handle cancel inference response
- */
-void ethosu_cancel_inference_rsp(struct ethosu_device *edev,
-				 struct ethosu_core_cancel_inference_rsp *rsp);
+void ethosu_capability_rsp(struct ethosu_device *edev,
+			   struct ethosu_core_msg_capabilities_rsp *rsp);
 
-#endif /* ETHOSU_CANCEL_INFERENCE_H */
+#endif

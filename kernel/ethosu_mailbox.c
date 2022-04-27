@@ -282,34 +282,51 @@ int ethosu_mailbox_read(struct ethosu_mailbox *mbox,
 	return 0;
 }
 
-int ethosu_mailbox_find(struct ethosu_mailbox *mbox,
-			struct ethosu_mailbox_msg *msg)
+int ethosu_mailbox_register(struct ethosu_mailbox *mbox,
+			    struct ethosu_mailbox_msg *msg)
 {
-	struct ethosu_mailbox_msg *cur;
+	msg->id = idr_alloc_cyclic(&mbox->msg_idr, msg, 0, INT_MAX, GFP_KERNEL);
+	if (msg->id < 0)
+		return msg->id;
 
-	list_for_each_entry(cur, &mbox->pending_list, list) {
-		if (cur == msg)
-			return 0;
-	}
+	return 0;
+}
 
-	return -EINVAL;
+void ethosu_mailbox_deregister(struct ethosu_mailbox *mbox,
+			       struct ethosu_mailbox_msg *msg)
+{
+	idr_remove(&mbox->msg_idr, msg->id);
+}
+
+struct ethosu_mailbox_msg *ethosu_mailbox_find(struct ethosu_mailbox *mbox,
+					       int msg_id)
+{
+	struct ethosu_mailbox_msg *ptr = (struct ethosu_mailbox_msg *)idr_find(
+		&mbox->msg_idr, msg_id);
+
+	if (ptr == NULL)
+		return ERR_PTR(-EINVAL);
+
+	return ptr;
 }
 
 void ethosu_mailbox_fail(struct ethosu_mailbox *mbox)
 {
-	struct ethosu_mailbox_msg *cur, *cur_tmp;
+	struct ethosu_mailbox_msg *cur;
+	int id;
 
-	list_for_each_entry_safe(cur, cur_tmp, &mbox->pending_list, list) {
+	idr_for_each_entry(&mbox->msg_idr, cur, id) {
 		cur->fail(cur);
 	}
 }
 
 void ethosu_mailbox_resend(struct ethosu_mailbox *mbox)
 {
-	struct ethosu_mailbox_msg *cur, *cur_tmp;
+	struct ethosu_mailbox_msg *cur;
+	int id;
 	int ret;
 
-	list_for_each_entry_safe(cur, cur_tmp, &mbox->pending_list, list) {
+	idr_for_each_entry(&mbox->msg_idr, cur, id) {
 		ret = cur->resend(cur);
 		if (ret) {
 			dev_warn(mbox->dev, "Failed to resend msg. ret=%d",
@@ -336,10 +353,10 @@ int ethosu_mailbox_version_request(struct ethosu_mailbox *mbox)
 }
 
 int ethosu_mailbox_capabilities_request(struct ethosu_mailbox *mbox,
-					void *user_arg)
+					struct ethosu_mailbox_msg *msg)
 {
 	struct ethosu_core_capabilities_req req = {
-		.user_arg = (ptrdiff_t)user_arg
+		.user_arg = msg->id
 	};
 
 	return ethosu_queue_write_msg(mbox, ETHOSU_CORE_MSG_CAPABILITIES_REQ,
@@ -348,7 +365,7 @@ int ethosu_mailbox_capabilities_request(struct ethosu_mailbox *mbox,
 }
 
 int ethosu_mailbox_inference(struct ethosu_mailbox *mbox,
-			     void *user_arg,
+			     struct ethosu_mailbox_msg *msg,
 			     uint32_t ifm_count,
 			     struct ethosu_buffer **ifm,
 			     uint32_t ofm_count,
@@ -369,7 +386,7 @@ int ethosu_mailbox_inference(struct ethosu_mailbox *mbox,
 		return -EINVAL;
 	}
 
-	inf.user_arg = (ptrdiff_t)user_arg;
+	inf.user_arg = msg->id;
 	inf.ifm_count = ifm_count;
 	inf.ofm_count = ofm_count;
 	inf.pmu_cycle_counter_enable = pmu_cycle_counter_enable;
@@ -396,13 +413,13 @@ int ethosu_mailbox_inference(struct ethosu_mailbox *mbox,
 }
 
 int ethosu_mailbox_network_info_request(struct ethosu_mailbox *mbox,
-					void *user_arg,
+					struct ethosu_mailbox_msg *msg,
 					struct ethosu_buffer *network,
 					uint32_t network_index)
 {
 	struct ethosu_core_network_info_req info;
 
-	info.user_arg = (ptrdiff_t)user_arg;
+	info.user_arg = msg->id;
 
 	if (network != NULL) {
 		info.network.type = ETHOSU_CORE_NETWORK_BUFFER;
@@ -417,13 +434,13 @@ int ethosu_mailbox_network_info_request(struct ethosu_mailbox *mbox,
 }
 
 int ethosu_mailbox_cancel_inference(struct ethosu_mailbox *mbox,
-				    void *user_arg,
-				    void *inference_handle)
+				    struct ethosu_mailbox_msg *msg,
+				    int inference_handle)
 {
 	struct ethosu_core_cancel_inference_req req;
 
-	req.user_arg = (ptrdiff_t)user_arg;
-	req.inference_handle = (ptrdiff_t)inference_handle;
+	req.user_arg = msg->id;
+	req.inference_handle = inference_handle;
 
 	return ethosu_queue_write_msg(mbox,
 				      ETHOSU_CORE_MSG_CANCEL_INFERENCE_REQ,
@@ -473,7 +490,7 @@ int ethosu_mailbox_init(struct ethosu_mailbox *mbox,
 	mbox->user_arg = user_arg;
 	mbox->wdog = wdog;
 	mbox->ping_count = 0;
-	INIT_LIST_HEAD(&mbox->pending_list);
+	idr_init(&mbox->msg_idr);
 
 	mbox->client.dev = dev;
 	mbox->client.rx_callback = ethosu_mailbox_rx_callback;
