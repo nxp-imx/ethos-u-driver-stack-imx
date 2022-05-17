@@ -192,7 +192,11 @@ void ethosu_network_info_rsp(struct ethosu_device *edev,
 		goto signal_complete;
 	}
 
-	strncpy(info->uapi->desc, rsp->desc, sizeof(info->uapi->desc));
+	ret = strscpy(info->uapi->desc, rsp->desc, sizeof(info->uapi->desc));
+	if (ret < 0) {
+		info->errno = ret;
+		goto signal_complete;
+	}
 
 	info->uapi->ifm_count = rsp->ifm_count;
 	for (i = 0; i < rsp->ifm_count; i++)
