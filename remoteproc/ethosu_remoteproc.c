@@ -260,6 +260,7 @@ static int ethosu_rproc_of_memory_translations(struct platform_device *pdev,
 
 static const struct of_device_id ethosu_rproc_match[] = {
 	{ .compatible = "arm,ethosu-rproc" },
+	{ /* sentinel */ },
 };
 
 static int ethosu_rproc_probe(struct platform_device *pdev)
