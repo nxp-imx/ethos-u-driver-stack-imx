@@ -321,6 +321,7 @@ int Buffer::getFd() const {
  * Network
  ****************************************************************************/
 
+#define OFFLINE_MEM_ALLOC_METADATA "OfflineMemoryAllocation"
 Network::Network(const Device &device, shared_ptr<Buffer> &buffer) : fd(-1), buffer(buffer) {
     // Create buffer handle
     ethosu_uapi_network_create uapi;
@@ -329,6 +330,22 @@ Network::Network(const Device &device, shared_ptr<Buffer> &buffer) : fd(-1), buf
 
     // Create model handle
     const tflite::Model *model = tflite::GetModel(reinterpret_cast<void *>(buffer->data()));
+    auto *md = model->metadata();
+    const int32_t* address_offsets = NULL;
+    if (md) {
+        for (uint32_t mid=0; mid < md->size(); ++mid) {
+            const auto meta = md->Get(mid);
+            if (meta->name()->str() != OFFLINE_MEM_ALLOC_METADATA)
+                continue;
+            // grab raw buffer and dump it..
+            auto meta_vec = model->buffers()->Get(meta->buffer())->data();
+            address_offsets = reinterpret_cast<const int32_t*>(meta_vec->data() + 12);
+            }
+    }
+
+    if (address_offsets == NULL){
+        throw Exception("Can't get vela metadata, only support models compiled by vela");
+    }
 
     if (model->subgraphs() == nullptr) {
         try {
@@ -338,15 +355,36 @@ Network::Network(const Device &device, shared_ptr<Buffer> &buffer) : fd(-1), buf
 
     // Get input dimensions for first subgraph
     auto *subgraph = *model->subgraphs()->begin();
-    ifmDims        = getSubGraphDims(subgraph, subgraph->inputs());
-    ifmShapes      = getSubGraphShapes(subgraph, subgraph->inputs());
-    ifmTypes       = getSubGraphTypes(subgraph, subgraph->inputs());
+    auto tensor_map = subgraph->inputs();
+    ifmDims        = getSubGraphDims(subgraph, tensor_map);
+    ifmShapes      = getSubGraphShapes(subgraph, tensor_map);
+    ifmTypes       = getSubGraphTypes(subgraph, tensor_map);
+    for (auto index = tensor_map->begin(); index != tensor_map->end(); ++index) {
+        inputDataOffset.push_back(address_offsets[*index]);
+    }
 
     // Get output dimensions for last subgraph
     subgraph = *model->subgraphs()->rbegin();
-    ofmDims  = getSubGraphDims(subgraph, subgraph->outputs());
-    ofmShapes= getSubGraphShapes(subgraph, subgraph->outputs());
-    ofmTypes = getSubGraphTypes(subgraph, subgraph->outputs());
+    tensor_map = subgraph->outputs();
+    ofmDims  = getSubGraphDims(subgraph, tensor_map);
+    ofmShapes= getSubGraphShapes(subgraph, tensor_map);
+    ofmTypes = getSubGraphTypes(subgraph, tensor_map);
+    for (auto index = tensor_map->begin(); index != tensor_map->end(); ++index) {
+        outputDataOffset.push_back(address_offsets[*index]);
+    }
+}
+int32_t Network::getInputDataOffset(int index){
+    if (index > inputDataOffset.size() + 1){
+        throw Exception("Invalid input index");
+    }
+    return inputDataOffset[index];
+}
+
+int32_t Network::getOutputDataOffset(int index){
+    if (index > outputDataOffset.size() + 1){
+        throw Exception("Invalid output index");
+    }
+    return outputDataOffset[index];
 }
 
 Network::~Network() {
@@ -383,6 +421,10 @@ size_t Network::getIfmSize() const {
     return size;
 }
 
+size_t Network::getInputCount() const {
+    return inputDataOffset.size();
+}
+
 const std::vector<size_t> &Network::getOfmDims() const {
     return ofmDims;
 }
@@ -395,6 +437,10 @@ size_t Network::getOfmSize() const {
     }
 
     return size;
+}
+
+size_t Network::getOutputCount() const {
+    return outputDataOffset.size();
 }
 
 void Network::convertInputData(uint8_t* data, int ifmIndex) {
@@ -527,6 +573,26 @@ const std::vector<uint32_t> Inference::getPmuCounters() const {
     return counterValues;
 }
 
+char* Inference::getInputData(int index){
+    int32_t offset = network->getInputDataOffset(index);
+
+    if (ifmBuffers.size() < 1 || ifmBuffers[0]->capacity() < offset) {
+        throw Exception("Tenor arena buffer is not initialized");
+    }
+
+    return ifmBuffers[0]->data() + offset;
+}
+
+char* Inference::getOutputData(int index){
+    int32_t offset = network->getOutputDataOffset(index);
+
+    if (ifmBuffers.size() < 1 || ifmBuffers[0]->capacity() < offset) {
+        throw Exception("Tenor arena buffer is not initialized");
+    }
+
+    return ifmBuffers[0]->data() + offset;
+}
+
 uint64_t Inference::getCycleCounter() const {
     ethosu_uapi_result_status uapi;
 
@@ -537,12 +603,12 @@ uint64_t Inference::getCycleCounter() const {
 
 InferenceResult Inference::processOutput(float threshold, size_t numResults) {
     InferenceResult result;
-    if (ofmBuffers.size() > 1) {
+    if (network->getOutputCount() > 1) {
         /* Object Detection Demo */
-        auto output_locations = (float*)ofmBuffers[0]->data();
-        auto output_classes = (float*)ofmBuffers[1]->data();
-        auto output_scores = (float*)ofmBuffers[2]->data();
-        auto output_count = (float*)ofmBuffers[3]->data();
+        auto output_locations = (float*)getOutputData(0);
+        auto output_classes = (float*)getOutputData(1);
+        auto output_scores = (float*)getOutputData(2);
+        auto output_count = (float*)getOutputData(3);
 
 	if(numResults > static_cast<size_t>(*output_count)) {
 	    numResults = static_cast<size_t>(*output_count);
@@ -566,8 +632,8 @@ InferenceResult Inference::processOutput(float threshold, size_t numResults) {
         std::greater<std::pair<float, int>>> top_result_pq;
 
 	auto ofmType = (tflite::TensorType)network->getOfmTypes()[0];
-	auto data = ofmBuffers[0]->data();
-        const long count = ofmBuffers[0]->capacity() / getTensorTypeSize(ofmType);
+	auto data = getOutputData(0);
+        const long count = network->getOfmDims()[0] / getTensorTypeSize(ofmType);
         for (int i = 0; i < count; ++i) {
             float value;
             switch (ofmType) {

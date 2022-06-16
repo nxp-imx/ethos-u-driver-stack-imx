@@ -103,8 +103,6 @@ shared_ptr<Inference> createInference(Device &device,
                                       const std::vector<uint8_t> &counters,
                                       bool enableCycleCounter,
                                       int64_t arenaSizeOfMB = defaultArenaSizeOfMB) {
-    vector<shared_ptr<Buffer>> ifm;
-
     // Open IFM file
     ifstream stream(filename, ios::binary);
     if (!stream.is_open()) {
@@ -112,53 +110,31 @@ shared_ptr<Inference> createInference(Device &device,
         exit(1);
     }
 
-    // Create buffer for tensor arena
-    size_t arena_buffer_size = arenaSizeOfMB << 20;
-    shared_ptr<Buffer> arena_buffer = make_shared<Buffer>(device, arena_buffer_size);
-    arena_buffer->resize(arena_buffer_size);
-    ifm.push_back(arena_buffer);
-
     // Get IFM file size
     stream.seekg(0, ios_base::end);
     size_t size = stream.tellg();
     stream.seekg(0, ios_base::beg);
 
-#if 0
-    if (size != network->getIfmSize()) {
-        cerr << "Error: IFM size does not match network size. filename=" << filename << ", size=" << size
-             << ", network=" << network->getIfmSize() << endl;
+    // Create buffer for tensor arena
+    size_t arena_buffer_size = arenaSizeOfMB << 20;
+    shared_ptr<Buffer> arena_buffer = make_shared<Buffer>(device, arena_buffer_size);
+    arena_buffer->resize(arena_buffer_size);
+    auto inference = make_shared<Inference>(network, arena_buffer, counters, enableCycleCounter);
+
+    // Set input buffer
+    char s_buffer[DECODE_BUFFER_SIZE];
+    stream.read(s_buffer, size);
+    if (!stream) {
+        cerr << "Error: Failed to read IFM" << endl;
         exit(1);
     }
-#endif
 
-    // Create IFM buffers
-    char s_buffer[DECODE_BUFFER_SIZE];
-    size_t buffer_size = max(size, network->getIfmDims()[0]);
-//    for (auto size : network->getIfmDims()) {
-        shared_ptr<Buffer> buffer = make_shared<Buffer>(device, buffer_size);
-        buffer->resize(network->getIfmDims()[0]);
-        stream.read(s_buffer, size);
+    char* input_data = inference->getInputData(0);
+    auto ifmShape = network->getIfmShapes()[0];
+    IMAGE_Decode((uint8_t*)s_buffer, (uint8_t*)input_data, ifmShape[1], ifmShape[2], ifmShape[3]);
+    network->convertInputData((uint8_t*)input_data, 0);
 
-	auto ifmShape = network->getIfmShapes()[0];
-	IMAGE_Decode((uint8_t*)s_buffer, (uint8_t*)buffer->data(), ifmShape[1], ifmShape[2], ifmShape[3]);
-	network->convertInputData((uint8_t*)buffer->data(), 0);
-
-        if (!stream) {
-            cerr << "Error: Failed to read IFM" << endl;
-            exit(1);
-        }
-
-        ifm.push_back(buffer);
-//    }
-
-    // Create OFM buffers
-    vector<shared_ptr<Buffer>> ofm;
-    for (auto size : network->getOfmDims()) {
-        ofm.push_back(make_shared<Buffer>(device, size));
-    }
-
-    return make_shared<Inference>(
-        network, ifm.begin(), ifm.end(), ofm.begin(), ofm.end(), counters, enableCycleCounter);
+    return inference;
 }
 
 ostream &operator<<(ostream &os, Buffer &buf) {

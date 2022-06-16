@@ -169,12 +169,16 @@ public:
     const std::vector<std::vector<size_t>> &getIfmShapes() const;
     const std::vector<int> &getIfmTypes() const;
     size_t getIfmSize() const;
+    size_t getInputCount() const;
     const std::vector<size_t> &getOfmDims() const;
     const std::vector<std::vector<size_t>> &getOfmShapes() const;
     const std::vector<int> &getOfmTypes() const;
     size_t getOfmSize() const;
+    size_t getOutputCount() const;
 
     void convertInputData(uint8_t* data, int ifmIndex);
+    int32_t getInputDataOffset(int index);
+    int32_t getOutputDataOffset(int index);
 
 private:
     int fd;
@@ -186,6 +190,8 @@ private:
     std::vector<size_t> ofmDims;
     std::vector<std::vector<size_t>> ofmShapes;
     std::vector<int> ofmTypes;
+    std::vector<int32_t> inputDataOffset;
+    std::vector<int32_t> outputDataOffset;
 };
 
 typedef std::vector<std::tuple<int, float, std::vector<float>>> InferenceResult;
@@ -225,6 +231,23 @@ public:
         create(counterConfigs, enableCycleCounter);
     }
 
+    template <typename T, typename U>
+    Inference(const std::shared_ptr<Network> &network,
+              const T &arenaBuffer,
+              const U &counters,
+              bool enableCycleCounter) :
+        network(network) {
+        ifmBuffers.push_back(arenaBuffer);
+
+        std::vector<uint32_t> counterConfigs = initializeCounterConfig();
+
+        if (counters.size() > counterConfigs.size())
+            throw EthosU::Exception("PMU Counters argument to large.");
+
+        std::copy(counters.begin(), counters.end(), counterConfigs.begin());
+        create(counterConfigs, enableCycleCounter);
+    }
+
     virtual ~Inference();
 
     int wait(int64_t timeoutNanos = -1) const;
@@ -236,6 +259,8 @@ public:
     const std::shared_ptr<Network> getNetwork() const;
     std::vector<std::shared_ptr<Buffer>> &getIfmBuffers();
     std::vector<std::shared_ptr<Buffer>> &getOfmBuffers();
+    char* getInputData(int index = 0);
+    char* getOutputData(int index = 0);
 
     static uint32_t getMaxPmuEventCounters();
 
