@@ -291,7 +291,7 @@ static int ethosu_open(struct inode *inode,
 
 	file->private_data = edev;
 
-	dev_info(edev->dev, "Opening device node.\n");
+	dev_info(edev->dev, "Device open. file=0x%pK\n", file);
 
 	return nonseekable_open(inode, file);
 }
@@ -308,16 +308,20 @@ static long ethosu_ioctl(struct file *file,
 	if (ret)
 		return ret;
 
-	dev_info(edev->dev, "Ioctl. cmd=0x%x, arg=0x%lx\n", cmd, arg);
+	dev_info(edev->dev, "Device ioctl. file=0x%pK, cmd=0x%x, arg=0x%lx\n",
+		 file, cmd, arg);
 
 	switch (cmd) {
 	case ETHOSU_IOCTL_VERSION_REQ:
-		dev_info(edev->dev, "Ioctl: Send version request\n");
+		dev_info(edev->dev, "Device ioctl: Send version request\n");
 		ret = ethosu_mailbox_version_request(&edev->mailbox);
 		break;
 	case ETHOSU_IOCTL_CAPABILITIES_REQ: {
 		struct ethosu_uapi_device_capabilities uapi;
-		dev_info(edev->dev, "Ioctl: Send capabilities request\n");
+
+		dev_info(edev->dev,
+			 "Device ioctl: Send capabilities request\n");
+
 		ret = ethosu_capabilities_request(edev, &uapi);
 		if (ret)
 			break;
@@ -326,19 +330,18 @@ static long ethosu_ioctl(struct file *file,
 		break;
 	}
 	case ETHOSU_IOCTL_PING: {
-		dev_info(edev->dev, "Ioctl: Send ping\n");
+		dev_info(edev->dev, "Device ioctl: Send ping\n");
 		ret = ethosu_mailbox_ping(&edev->mailbox);
 		break;
 	}
 	case ETHOSU_IOCTL_BUFFER_CREATE: {
 		struct ethosu_uapi_buffer_create uapi;
 
-		dev_info(edev->dev, "Ioctl: Buffer create\n");
-
 		if (copy_from_user(&uapi, udata, sizeof(uapi)))
 			break;
 
-		dev_info(edev->dev, "Ioctl: Buffer. capacity=%u\n",
+		dev_info(edev->dev,
+			 "Device ioctl: Buffer create. capacity=%u\n",
 			 uapi.capacity);
 
 		ret = ethosu_buffer_create(edev, uapi.capacity);
@@ -350,7 +353,9 @@ static long ethosu_ioctl(struct file *file,
 		if (copy_from_user(&uapi, udata, sizeof(uapi)))
 			break;
 
-		dev_info(edev->dev, "Ioctl: Network. fd=%u\n", uapi.fd);
+		dev_info(edev->dev,
+			 "Device ioctl: Network create. type=%u, fd/index=%u\n",
+			 uapi.type, uapi.fd);
 
 		ret = ethosu_network_create(edev, &uapi);
 		break;

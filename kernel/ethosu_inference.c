@@ -237,7 +237,9 @@ static long ethosu_inference_ioctl(struct file *file,
 	if (ret)
 		return ret;
 
-	dev_info(inf->edev->dev, "Ioctl: cmd=%u, arg=%lu", cmd, arg);
+	dev_info(inf->edev->dev,
+		 "Inference ioctl: file=0x%pK, inf=0x%pK, cmd=0x%x, arg=%lu",
+		 file, inf, cmd, arg);
 
 	switch (cmd) {
 	case ETHOSU_IOCTL_INFERENCE_STATUS: {
@@ -257,7 +259,7 @@ static long ethosu_inference_ioctl(struct file *file,
 		uapi.pmu_count.cycle_count = inf->pmu_cycle_counter_count;
 
 		dev_info(inf->edev->dev,
-			 "Ioctl: Inference status. status=%s (%d)\n",
+			 "Inference ioctl: Inference status. status=%s (%d)\n",
 			 status_to_string(uapi.status), uapi.status);
 
 		ret = copy_to_user(udata, &uapi, sizeof(uapi)) ? -EFAULT : 0;
@@ -267,7 +269,8 @@ static long ethosu_inference_ioctl(struct file *file,
 	case ETHOSU_IOCTL_INFERENCE_CANCEL: {
 		struct ethosu_uapi_cancel_inference_status uapi;
 
-		dev_info(inf->edev->dev, "Ioctl: Cancel Inference. Handle=%p\n",
+		dev_info(inf->edev->dev,
+			 "Inference ioctl: Cancel Inference. Handle=%p\n",
 			 inf);
 
 		ret = ethosu_cancel_inference_request(inf, &uapi);
@@ -385,8 +388,9 @@ int ethosu_inference_create(struct ethosu_device *edev,
 	inf->file = fget(ret);
 	fput(inf->file);
 
-	dev_info(edev->dev, "Inference create. Id=%d, handle=0x%p, fd=%d",
-		 inf->msg.id, inf, fd);
+	dev_info(edev->dev,
+		 "Inference create. file=0x%pK, fd=%d, inf=0x%p, net=0x%pK, msg.id=0x%x",
+		 inf->file, fd, inf, inf->net, inf->msg.id);
 
 	return fd;
 

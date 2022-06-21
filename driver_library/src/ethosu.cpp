@@ -20,8 +20,10 @@
 #include <uapi/ethosu.h>
 
 #include <algorithm>
+#include <cstdlib>
 #include <exception>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 
 #include <fcntl.h>
@@ -33,12 +35,71 @@
 
 using namespace std;
 
+namespace {
+
+enum class Severity { Error, Warning, Info, Debug };
+
+class Log {
+public:
+    Log(const Severity _severity = Severity::Error) : severity(_severity) {}
+
+    ~Log() = default;
+
+    template <typename T>
+    const Log &operator<<(const T &d) const {
+        if (level >= severity) {
+            cout << d;
+        }
+
+        return *this;
+    }
+
+    const Log &operator<<(ostream &(*manip)(ostream &)) const {
+        if (level >= severity) {
+            manip(cout);
+        }
+
+        return *this;
+    }
+
+private:
+    static Severity getLogLevel() {
+        if (const char *e = getenv("ETHOSU_LOG_LEVEL")) {
+            const string env(e);
+
+            if (env == "Error") {
+                return Severity::Error;
+            } else if (env == "Warning") {
+                return Severity::Warning;
+            } else if (env == "Info") {
+                return Severity::Info;
+            } else if (env == "Debug") {
+                return Severity::Debug;
+            } else {
+                cerr << "Unsupported log level '" << env << "'" << endl;
+            }
+        }
+
+        return Severity::Warning;
+    }
+
+    static const Severity level;
+    const Severity severity;
+};
+
+const Severity Log::level = Log::getLogLevel();
+
+} // namespace
+
 namespace EthosU {
 __attribute__((weak)) int eioctl(int fd, unsigned long cmd, void *data = nullptr) {
     int ret = ::ioctl(fd, cmd, data);
     if (ret < 0) {
         throw EthosU::Exception("IOCTL failed");
     }
+
+    Log(Severity::Debug) << "ioctl. fd=" << fd << ", cmd=" << setw(8) << setfill('0') << hex << cmd << ", ret=" << ret
+                         << endl;
 
     return ret;
 }
@@ -48,6 +109,8 @@ __attribute__((weak)) int eopen(const char *pathname, int flags) {
     if (fd < 0) {
         throw Exception("Failed to open device");
     }
+
+    Log(Severity::Debug) << "open. fd=" << fd << ", path='" << pathname << "', flags=" << flags << endl;
 
     return fd;
 }
@@ -63,6 +126,8 @@ eppoll(struct pollfd *fds, nfds_t nfds, const struct timespec *tmo_p, const sigs
 }
 
 __attribute__((weak)) int eclose(int fd) {
+    Log(Severity::Debug) << "close. fd=" << fd << endl;
+
     int result = ::close(fd);
     if (result < 0) {
         throw Exception("Failed to close file");
@@ -76,10 +141,15 @@ __attribute((weak)) void *emmap(void *addr, size_t length, int prot, int flags, 
         throw Exception("Failed to mmap file");
     }
 
+    Log(Severity::Debug) << "map. fd=" << fd << ", addr=" << setfill('0') << addr << ", length=" << dec << length
+                         << ", ptr=" << hex << ptr << endl;
+
     return ptr;
 }
 
 __attribute__((weak)) int emunmap(void *addr, size_t length) {
+    Log(Severity::Debug) << "unmap. addr=" << setfill('0') << addr << ", length=" << dec << length << endl;
+
     int result = ::munmap(addr, length);
     if (result < 0) {
         throw Exception("Failed to munmap file");
@@ -146,10 +216,12 @@ ostream &operator<<(ostream &out, const SemanticVersion &v) {
  ****************************************************************************/
 Device::Device(const char *device) {
     fd = eopen(device, O_RDWR | O_NONBLOCK);
+    Log(Severity::Info) << "Device(\"" << device << "\"). this=" << this << ", fd=" << fd << endl;
 }
 
 Device::~Device() noexcept(false) {
     eclose(fd);
+    Log(Severity::Info) << "~Device(). this=" << this << endl;
 }
 
 int Device::ioctl(unsigned long cmd, void *data) const {
@@ -187,7 +259,11 @@ Buffer::Buffer(const Device &device, const size_t capacity) : fd(-1), dataPtr(nu
         } catch (...) { std::throw_with_nested(e); }
         throw;
     }
+
     dataPtr = reinterpret_cast<char *>(d);
+
+    Log(Severity::Info) << "Buffer(" << &device << ", " << dec << capacity << "), this=" << this << ", fd=" << fd
+                        << ", dataPtr=" << static_cast<void *>(dataPtr) << endl;
 }
 
 Buffer::~Buffer() noexcept(false) {
@@ -199,7 +275,10 @@ Buffer::~Buffer() noexcept(false) {
         } catch (...) { std::throw_with_nested(e); }
         throw;
     }
+
     eclose(fd);
+
+    Log(Severity::Info) << "~Buffer(). this=" << this << endl;
 }
 
 size_t Buffer::capacity() const {
@@ -255,6 +334,8 @@ Network::Network(const Device &device, shared_ptr<Buffer> &buffer) : fd(-1), buf
         } catch (...) { std::throw_with_nested(e); }
         throw;
     }
+
+    Log(Severity::Info) << "Network(" << &device << ", " << &*buffer << "), this=" << this << ", fd=" << fd << endl;
 }
 
 Network::Network(const Device &device, const unsigned index) : fd(-1) {
@@ -271,6 +352,8 @@ Network::Network(const Device &device, const unsigned index) : fd(-1) {
         } catch (...) { std::throw_with_nested(e); }
         throw;
     }
+
+    Log(Severity::Info) << "Network(" << &device << ", " << index << "), this=" << this << ", fd=" << fd << endl;
 }
 
 void Network::collectNetworkInfo() {
@@ -288,6 +371,7 @@ void Network::collectNetworkInfo() {
 
 Network::~Network() noexcept(false) {
     eclose(fd);
+    Log(Severity::Info) << "~Network(). this=" << this << endl;
 }
 
 int Network::ioctl(unsigned long cmd, void *data) {
@@ -350,6 +434,7 @@ ostream &operator<<(ostream &out, const InferenceStatus &status) {
 
 Inference::~Inference() noexcept(false) {
     eclose(fd);
+    Log(Severity::Info) << "~Inference(). this=" << this << endl;
 }
 
 void Inference::create(std::vector<uint32_t> &counterConfigs, bool cycleCounterEnable = false) {
@@ -384,6 +469,8 @@ void Inference::create(std::vector<uint32_t> &counterConfigs, bool cycleCounterE
     uapi.pmu_config.cycle_count = cycleCounterEnable;
 
     fd = network->ioctl(ETHOSU_IOCTL_INFERENCE_CREATE, static_cast<void *>(&uapi));
+
+    Log(Severity::Info) << "Inference(" << &*network << "), this=" << this << ", fd=" << fd << endl;
 }
 
 std::vector<uint32_t> Inference::initializeCounterConfig() {

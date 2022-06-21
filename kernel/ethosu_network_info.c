@@ -99,8 +99,9 @@ int ethosu_network_info_request(struct ethosu_network *net,
 	if (ret)
 		goto deregister;
 
-	dev_info(info->edev->dev, "Network info create. Id=%d, handle=0x%p\n\n",
-		 info->msg.id, info);
+	dev_info(info->edev->dev,
+		 "Network info create. info=0x%pK, net=0x%pK, msg.id=0x%x\n",
+		 info, info->net, info->msg.id);
 
 	/* Unlock the device mutex and wait for completion */
 	mutex_unlock(&info->edev->mutex);
@@ -110,7 +111,8 @@ int ethosu_network_info_request(struct ethosu_network *net,
 	mutex_lock(&info->edev->mutex);
 
 	if (0 == timeout) {
-		dev_warn(info->edev->dev, "Network info timed out.");
+		dev_warn(info->edev->dev, "Network info timed out. info=0x%pK",
+			 info);
 
 		ret = -ETIME;
 		goto deregister;
@@ -123,8 +125,9 @@ deregister:
 	ethosu_network_put(info->net);
 
 kfree:
-	dev_info(info->edev->dev, "Network info destroy. Id=%d, handle=0x%p\n",
-		 info->msg.id, info);
+	dev_info(info->edev->dev,
+		 "Network info destroy. info=0x%pK, msg.id=0x%x\n",
+		 info, info->msg.id);
 	devm_kfree(info->edev->dev, info);
 
 	return ret;
@@ -142,7 +145,7 @@ void ethosu_network_info_rsp(struct ethosu_device *edev,
 	msg = ethosu_mailbox_find(&edev->mailbox, id);
 	if (IS_ERR(msg)) {
 		dev_warn(edev->dev,
-			 "Id for network info msg not found. Id=%d\n",
+			 "Id for network info msg not found. msg.id=0x%x\n",
 			 id);
 
 		return;

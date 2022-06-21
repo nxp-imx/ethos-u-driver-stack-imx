@@ -68,7 +68,7 @@ static void ethosu_network_destroy(struct kref *kref)
 	struct ethosu_network *net =
 		container_of(kref, struct ethosu_network, kref);
 
-	dev_info(net->edev->dev, "Network destroy. handle=0x%pK\n", net);
+	dev_info(net->edev->dev, "Network destroy. net=0x%pK\n", net);
 
 	if (net->buf != NULL)
 		ethosu_buffer_put(net->buf);
@@ -81,7 +81,8 @@ static int ethosu_network_release(struct inode *inode,
 {
 	struct ethosu_network *net = file->private_data;
 
-	dev_info(net->edev->dev, "Network release. handle=0x%pK\n", net);
+	dev_info(net->edev->dev, "Network release. file=0x%pK, net=0x%pK\n",
+		 file, net);
 
 	ethosu_network_put(net);
 
@@ -100,7 +101,9 @@ static long ethosu_network_ioctl(struct file *file,
 	if (ret)
 		return ret;
 
-	dev_info(net->edev->dev, "Ioctl: cmd=0x%x, arg=0x%lx\n", cmd, arg);
+	dev_info(net->edev->dev,
+		 "Network ioctl: file=0x%pK, net=0x%pK, cmd=0x%x, arg=0x%lx\n",
+		 file, net, cmd, arg);
 
 	switch (cmd) {
 	case ETHOSU_IOCTL_NETWORK_INFO: {
@@ -110,7 +113,7 @@ static long ethosu_network_ioctl(struct file *file,
 			break;
 
 		dev_info(net->edev->dev,
-			 "Ioctl: Network info. handle=%p\n",
+			 "Network ioctl: Network info. net=0x%pK\n",
 			 net);
 
 		ret = ethosu_network_info_request(net, &uapi);
@@ -127,7 +130,7 @@ static long ethosu_network_ioctl(struct file *file,
 			break;
 
 		dev_info(net->edev->dev,
-			 "Ioctl: Inference. ifm_fd=%u, ofm_fd=%u\n",
+			 "Network ioctl: Inference. ifm_fd=%u, ofm_fd=%u\n",
 			 uapi.ifm_fd[0], uapi.ofm_fd[0]);
 
 		ret = ethosu_inference_create(net->edev, net, &uapi);
@@ -177,8 +180,9 @@ int ethosu_network_create(struct ethosu_device *edev,
 	net->file = fget(ret);
 	fput(net->file);
 
-	dev_info(edev->dev, "Network create. handle=0x%pK",
-		 net);
+	dev_info(edev->dev,
+		 "Network create. file=0x%pK, fd=%d, net=0x%pK, buf=0x%pK, index=%u",
+		 net->file, ret, net, net->buf, net->index);
 
 	return ret;
 

@@ -126,10 +126,11 @@ static void ethosu_buffer_destroy(struct kref *kref)
 	struct ethosu_buffer *buf =
 		container_of(kref, struct ethosu_buffer, kref);
 
-	dev_info(buf->edev->dev, "Buffer destroy. handle=0x%pK\n", buf);
+	dev_info(buf->edev->dev, "Buffer destroy. buf=0x%pK\n", buf);
 
 	dma_free_coherent(buf->edev->dev, buf->capacity, buf->cpu_addr,
 			  buf->dma_addr_orig);
+
 	devm_kfree(buf->edev->dev, buf);
 }
 
@@ -138,7 +139,8 @@ static int ethosu_buffer_release(struct inode *inode,
 {
 	struct ethosu_buffer *buf = file->private_data;
 
-	dev_info(buf->edev->dev, "Buffer release. handle=0x%pK\n", buf);
+	dev_info(buf->edev->dev, "Buffer release. file=0x%pK, buf=0x%pK\n",
+		 file, buf);
 
 	ethosu_buffer_put(buf);
 
@@ -151,7 +153,8 @@ static int ethosu_buffer_mmap(struct file *file,
 	struct ethosu_buffer *buf = file->private_data;
 	int ret;
 
-	dev_info(buf->edev->dev, "Buffer mmap. handle=0x%pK\n", buf);
+	dev_info(buf->edev->dev, "Buffer mmap. file=0x%pK, buf=0x%pK\n",
+		 file, buf);
 
 	ret = dma_mmap_coherent(buf->edev->dev, vma, buf->cpu_addr,
 				buf->dma_addr_orig,
@@ -172,7 +175,9 @@ static long ethosu_buffer_ioctl(struct file *file,
 	if (ret)
 		return ret;
 
-	dev_info(buf->edev->dev, "Ioctl. cmd=%u, arg=%lu\n", cmd, arg);
+	dev_info(buf->edev->dev,
+		 "Buffer ioctl. file=0x%pK, buf=0x%pK, cmd=0x%x, arg=%lu\n",
+		 file, buf, cmd, arg);
 
 	switch (cmd) {
 	case ETHOSU_IOCTL_BUFFER_SET: {
@@ -182,7 +187,7 @@ static long ethosu_buffer_ioctl(struct file *file,
 			break;
 
 		dev_info(buf->edev->dev,
-			 "Ioctl: Buffer set. size=%u, offset=%u\n",
+			 "Buffer ioctl: Buffer set. size=%u, offset=%u\n",
 			 uapi.size, uapi.offset);
 
 		ret = ethosu_buffer_resize(buf, uapi.size, uapi.offset);
@@ -195,7 +200,7 @@ static long ethosu_buffer_ioctl(struct file *file,
 		uapi.offset = buf->offset;
 
 		dev_info(buf->edev->dev,
-			 "Ioctl: Buffer get. size=%u, offset=%u\n",
+			 "Buffer ioctl: Buffer get. size=%u, offset=%u\n",
 			 uapi.size, uapi.offset);
 
 		if (copy_to_user(udata, &uapi, sizeof(uapi)))
@@ -253,8 +258,8 @@ int ethosu_buffer_create(struct ethosu_device *edev,
 	fput(buf->file);
 
 	dev_info(buf->edev->dev,
-		 "Buffer create. handle=0x%pK, capacity=%zu, cpu_addr=0x%pK, dma_addr=0x%llx, dma_addr_orig=0x%llx, phys_addr=0x%llx\n",
-		 buf, capacity, buf->cpu_addr, buf->dma_addr,
+		 "Buffer create. file=0x%pK, fd=%d, buf=0x%pK, capacity=%zu, cpu_addr=0x%pK, dma_addr=0x%llx, dma_addr_orig=0x%llx, phys_addr=0x%llx\n",
+		 buf->file, ret, buf, capacity, buf->cpu_addr, buf->dma_addr,
 		 buf->dma_addr_orig, virt_to_phys(buf->cpu_addr));
 
 	return ret;

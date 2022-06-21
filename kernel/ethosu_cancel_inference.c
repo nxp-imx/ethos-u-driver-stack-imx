@@ -121,8 +121,8 @@ int ethosu_cancel_inference_request(struct ethosu_inference *inf,
 		goto kfree;
 
 	dev_info(cancellation->edev->dev,
-		 "Inference cancellation create. Id=%d, handle=0x%p\n",
-		 cancellation->msg.id, cancellation);
+		 "Inference cancellation create. cancel=0x%pK, msg.id=%d\n",
+		 cancellation, cancellation->msg.id);
 
 	ret = ethosu_cancel_inference_send(cancellation);
 	if (0 != ret)
@@ -166,7 +166,7 @@ deregister:
 
 kfree:
 	dev_info(cancellation->edev->dev,
-		 "Cancel inference destroy. handle=0x%p\n", cancellation);
+		 "Cancel inference destroy. cancel=0x%pK\n", cancellation);
 	/* decrease the reference on the inference we are refering to */
 	ethosu_inference_put(cancellation->inf);
 	devm_kfree(cancellation->edev->dev, cancellation);
