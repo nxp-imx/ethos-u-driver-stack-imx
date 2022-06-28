@@ -116,6 +116,8 @@ int ethosu_network_info_request(struct ethosu_network *net,
 		goto deregister;
 	}
 
+	ret = info->errno;
+
 deregister:
 	ethosu_mailbox_deregister(&info->edev->mailbox, &info->msg);
 	ethosu_network_put(info->net);
