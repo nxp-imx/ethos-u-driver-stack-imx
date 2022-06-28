@@ -75,10 +75,19 @@ struct ethosu_core_msg {
 
 /**
  * struct ethosu_core_queue_header - Message queue header
+ *
+ * The read and write indices must be separated by at least one cache line,
+ * else updating the read index would also overwrite the write index when
+ * the cache line is flushed. Because of this the message queues should be
+ * placed on cache line aligned addresses.
+ *
+ * The cache line length for Cortex-M is typically fixed at 32 bytes. The
+ * kernel driver is setup to allocated non cached memory.
  */
 struct ethosu_core_queue_header {
 	uint32_t size;
 	uint32_t read;
+	uint32_t pad[6];
 	uint32_t write;
 };
 
