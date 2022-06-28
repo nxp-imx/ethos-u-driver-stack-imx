@@ -105,7 +105,8 @@ static size_t ethosu_queue_available(struct ethosu_core_queue *queue)
 
 static size_t ethosu_queue_capacity(struct ethosu_core_queue *queue)
 {
-	return queue->header.size - ethosu_queue_available(queue);
+	return max_t(ssize_t,
+		     queue->header.size - ethosu_queue_available(queue) - 1, 0);
 }
 
 static int ethosu_queue_write(struct ethosu_mailbox *mbox,
