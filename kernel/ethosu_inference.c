@@ -103,8 +103,13 @@ static int ethosu_inference_send(struct ethosu_inference *inf)
 				       inf->pmu_event_config,
 				       ETHOSU_PMU_EVENT_MAX,
 				       inf->pmu_cycle_counter_enable);
-	if (ret)
+	if (ret) {
+		dev_warn(inf->edev->dev,
+			 "Failed to send inference request. inf=0x%pK, ret=%d",
+			 inf, ret);
+
 		return ret;
+	}
 
 	inf->status = ETHOSU_UAPI_STATUS_RUNNING;
 
@@ -177,8 +182,8 @@ static void ethosu_inference_kref_destroy(struct kref *kref)
 		container_of(kref, struct ethosu_inference, kref);
 
 	dev_info(inf->edev->dev,
-		 "Inference destroy. handle=0x%pK, status=%d\n",
-		 inf, inf->status);
+		 "Inference destroy. inf=0x%pK, status=%d, ifm_count=%u, ofm_count=%u",
+		 inf, inf->status, inf->ifm_count, inf->ofm_count);
 
 	ethosu_mailbox_deregister(&inf->edev->mailbox, &inf->msg);
 
@@ -198,8 +203,8 @@ static int ethosu_inference_release(struct inode *inode,
 	struct ethosu_inference *inf = file->private_data;
 
 	dev_info(inf->edev->dev,
-		 "Inference release. handle=0x%pK, status=%d\n",
-		 inf, inf->status);
+		 "Inference release. file=0x%pK, inf=0x%pK",
+		 file, inf);
 
 	ethosu_inference_put(inf);
 
@@ -232,7 +237,7 @@ static long ethosu_inference_ioctl(struct file *file,
 	if (ret)
 		return ret;
 
-	dev_info(inf->edev->dev, "Ioctl: cmd=%u, arg=%lu\n", cmd, arg);
+	dev_info(inf->edev->dev, "Ioctl: cmd=%u, arg=%lu", cmd, arg);
 
 	switch (cmd) {
 	case ETHOSU_IOCTL_INFERENCE_STATUS: {
@@ -293,6 +298,15 @@ int ethosu_inference_create(struct ethosu_device *edev,
 	uint32_t i;
 	int fd;
 	int ret = -ENOMEM;
+
+	if (uapi->ifm_count > ETHOSU_FD_MAX ||
+	    uapi->ofm_count > ETHOSU_FD_MAX) {
+		dev_warn(edev->dev,
+			 "Too many IFM and/or OFM buffers for inference. ifm_count=%u, ofm_count=%u",
+			 uapi->ifm_count, uapi->ofm_count);
+
+		return -EFAULT;
+	}
 
 	inf = devm_kzalloc(edev->dev, sizeof(*inf), GFP_KERNEL);
 	if (!inf)
@@ -356,6 +370,11 @@ int ethosu_inference_create(struct ethosu_device *edev,
 	/* Increment network reference count */
 	ethosu_network_get(net);
 
+	/* Send inference request to Arm Ethos-U subsystem */
+	ret = ethosu_inference_send(inf);
+	if (ret)
+		goto put_net;
+
 	/* Create file descriptor */
 	ret = fd = anon_inode_getfd("ethosu-inference", &ethosu_inference_fops,
 				    inf, O_RDWR | O_CLOEXEC);
@@ -365,11 +384,6 @@ int ethosu_inference_create(struct ethosu_device *edev,
 	/* Store pointer to file structure */
 	inf->file = fget(ret);
 	fput(inf->file);
-
-	/* Send inference request to Arm Ethos-U subsystem */
-	ret = ethosu_inference_send(inf);
-	if (ret)
-		goto put_net;
 
 	dev_info(edev->dev, "Inference create. Id=%d, handle=0x%p, fd=%d",
 		 inf->msg.id, inf, fd);
