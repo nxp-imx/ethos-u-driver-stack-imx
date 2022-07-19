@@ -17,7 +17,6 @@
  */
 
 #include <ethosu.hpp>
-#include <uapi/ethosu.h>
 
 #include <fstream>
 #include <iomanip>
@@ -242,12 +241,6 @@ int main(int argc, char *argv[]) {
 
     try {
         Device device(devArg.c_str());
-
-        cout << "Send Ping" << endl;
-        device.ioctl(ETHOSU_IOCTL_PING);
-
-        cout << "Send version request" << endl;
-        device.ioctl(ETHOSU_IOCTL_VERSION_REQ);
 
         cout << "Send capabilities request" << endl;
         Capabilities capabilities = device.capabilities();

@@ -24,6 +24,7 @@
 #include <string>
 #include <vector>
 
+#define ETHOSU_PMU_EVENT_MAX 4
 /*
  *The following undef are necessary to avoid clash with macros in GNU C Library
  * if removed the following warning/error are produced:

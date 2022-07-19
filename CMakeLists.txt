@@ -36,7 +36,7 @@ endif()
 string(REGEX REPLACE "(.*)gcc$" "\\1" CROSS_COMPILE "${CMAKE_C_COMPILER}")
 
 # Add include directory
-include_directories("kernel")
+include_directories("include")
 
 # Build driver library
 add_subdirectory(driver_library)

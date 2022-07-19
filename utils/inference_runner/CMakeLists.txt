@@ -19,9 +19,14 @@
 # Build executable
 aux_source_directory(./common COMMON_SRCS)
 add_executable(inference_runner ${COMMON_SRCS} inference_runner.cpp)
+add_executable(interpreter_runner ${COMMON_SRCS} interpreter_runner.cpp)
 
 # Link agains ethosu library
 target_link_libraries(inference_runner PRIVATE ethosu flatbuffers)
+target_link_libraries(interpreter_runner PRIVATE ethosu flatbuffers)
+
 
 # Install target
 install(TARGETS inference_runner DESTINATION "bin")
+install(TARGETS interpreter_runner DESTINATION "bin/ethosu/examples")
+

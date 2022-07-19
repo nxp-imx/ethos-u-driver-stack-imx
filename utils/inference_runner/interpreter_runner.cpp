@@ -17,7 +17,6 @@
  */
 
 #include <ethosu.hpp>
-#include <uapi/ethosu.h>
 
 #include <fstream>
 #include <iomanip>

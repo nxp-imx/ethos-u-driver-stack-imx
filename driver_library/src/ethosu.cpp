@@ -20,7 +20,7 @@
 #include "flatbuffers/flexbuffers.h"
 
 #include <ethosu.hpp>
-#include <uapi/ethosu.h>
+#include <linux/ethosu.h>
 
 #include <algorithm>
 #include <queue>
@@ -352,6 +352,11 @@ ostream &operator<<(ostream &out, const SemanticVersion &v) {
  ****************************************************************************/
 Device::Device(const char *device) {
     fd = eopen(device, O_RDWR | O_NONBLOCK);
+
+    //Send Ping
+    this->ioctl(ETHOSU_IOCTL_PING);
+    //Send version request
+    this->ioctl(ETHOSU_IOCTL_VERSION_REQ);
 }
 
 Device::~Device() {
@@ -791,14 +796,7 @@ vector<shared_ptr<Buffer>> &Inference::getOfmBuffers() {
  ****************************************************************************/
 Interpreter::Interpreter(const char *model, const char *_device, int64_t _arenaSizeOfMB):
              device(_device), arenaSizeOfMB(_arenaSizeOfMB){
-    // Init deivce
-    cout << "Send Ping" << endl;
-    device.ioctl(ETHOSU_IOCTL_PING);
-
-    cout << "Send version request" << endl;
-    device.ioctl(ETHOSU_IOCTL_VERSION_REQ);
-
-    cout << "Send capabilities request" << endl;
+    //Send capabilities request
     Capabilities capabilities = device.capabilities();
 
     cout << "Capabilities:" << endl
