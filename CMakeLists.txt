@@ -1,5 +1,6 @@
 #
 # Copyright (c) 2020-2021 Arm Limited. All rights reserved.
+# Copyright 2020-2022 NXP
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -43,3 +44,6 @@ add_subdirectory(driver_library)
 
 # Build utils
 add_subdirectory(utils)
+
+install(FILES python/label_image.py DESTINATION "bin/ethosu/examples")
+install(FILES include/linux/ethosu.h DESTINATION "include/linux")
