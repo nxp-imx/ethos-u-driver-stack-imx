@@ -35,24 +35,8 @@ endif()
 
 string(REGEX REPLACE "(.*)gcc$" "\\1" CROSS_COMPILE "${CMAKE_C_COMPILER}")
 
-# Add rpath to library directory
-set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
-
 # Add include directory
 include_directories("kernel")
-
-# Add sub directories
-#if(BUILD_KERNEL)
-#    add_subdirectory(kernel)
-#endif()
-
-#if (BUILD_MAILBOX)
-#    add_subdirectory(mailbox)
-#endif()
-
-#if (BUILD_REMOTEPROC)
-#    add_subdirectory(remoteproc)
-#endif()
 
 # Build driver library
 add_subdirectory(driver_library)
