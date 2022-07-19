@@ -54,16 +54,6 @@ include_directories("kernel")
 #    add_subdirectory(remoteproc)
 #endif()
 
-# Build flatbuffers
-unset(PROJECT_VERSION)
-unset(PROJECT_VERSION_MAJOR)
-unset(PROJECT_VERSION_MINOR)
-option(FLATBUFFERS_BUILD_TESTS OFF)
-option(FLATBUFFERS_INSTALL OFF)
-option(FLATBUFFERS_BUILD_FLATC OFF)
-option(FLATBUFFERS_BUILD_FLATHASH OFF)
-add_subdirectory(flatbuffers)
-
 # Build driver library
 add_subdirectory(driver_library)
 

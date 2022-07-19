@@ -27,6 +27,8 @@
 #include <string>
 #include <unistd.h>
 
+#include "common/pre_post_processing.h"
+
 using namespace std;
 using namespace EthosU;
 
@@ -41,6 +43,7 @@ void help(const string exe) {
     cerr << "    -n --network    File to read network from.\n";
     cerr << "    -i --ifm        File to read IFM from.\n";
     cerr << "    -o --ofm        File to write IFM to.\n";
+    cerr << "    -l --lbl        Lables file.\n";
     cerr << "    -P --pmu [0.." << Inference::getMaxPmuEventCounters() << "] eventid.\n";
     cerr << "                    PMU counter to enable followed by eventid, can be passed multiple times.\n";
     cerr << "    -C --cycles     Enable cycle counter for inference.\n";
@@ -74,6 +77,24 @@ shared_ptr<Buffer> allocAndFill(Device &device, const string filename) {
     return buffer;
 }
 
+// Takes a file name, and loads a list of labels from it, one per line, and
+// returns a vector of the strings. It pads with empty strings so the length
+// of the result is a multiple of 16, because our model expects that.
+int readLabelsFile(const string& file_name, std::vector<string>* result,
+                      size_t* found_label_count) {
+  std::ifstream file(file_name);
+  if (!file) {
+          return -1;
+  }
+  result->clear();
+  string line;
+  while (std::getline(file, line)) {
+    result->push_back(line);
+  }
+  *found_label_count = result->size();
+  return 0;
+}
+
 shared_ptr<Inference> createInference(Device &device,
                                       shared_ptr<Network> &network,
                                       const string &filename,
@@ -100,11 +121,16 @@ shared_ptr<Inference> createInference(Device &device,
 #endif
 
     // Create IFM buffers
+    char s_buffer[DECODE_BUFFER_SIZE];
     vector<shared_ptr<Buffer>> ifm;
 //    for (auto size : network->getIfmDims()) {
         shared_ptr<Buffer> buffer = make_shared<Buffer>(device, size);
-        buffer->resize(size);
-        stream.read(buffer->data(), size);
+        buffer->resize(network->getIfmDims()[0]);
+        stream.read(s_buffer, size);
+
+	auto ifmShape = network->getIfmShapes()[0];
+	IMAGE_Decode((uint8_t*)s_buffer, (uint8_t*)buffer->data(), ifmShape[1], ifmShape[2], ifmShape[3]);
+	network->convertInputData((uint8_t*)buffer->data(), 0);
 
         if (!stream) {
             cerr << "Error: Failed to read IFM" << endl;
@@ -144,9 +170,13 @@ int main(int argc, char *argv[]) {
     vector<uint8_t> enabledCounters(Inference::getMaxPmuEventCounters());
     string ofmArg;
     string devArg = "/dev/ethosu239";
+    string lblArg = "labels.txt";
     int64_t timeout         = defaultTimeout;
     bool print              = false;
     bool enableCycleCounter = false;
+    std::vector<string> labels;
+    size_t labelCount;
+
 
     for (int i = 1; i < argc; ++i) {
         const string arg(argv[i]);
@@ -163,6 +193,9 @@ int main(int argc, char *argv[]) {
         } else if (arg == "--ofm" || arg == "-o") {
             rangeCheck(++i, argc, arg);
             ofmArg = argv[i];
+        } else if (arg == "--lbl" || arg == "-l") {
+            rangeCheck(++i, argc, arg);
+            lblArg = argv[i];
 	} else if (arg == "--dev" || arg == "-d") {
             rangeCheck(++i, argc, arg);
             devArg = argv[i];
@@ -207,6 +240,11 @@ int main(int argc, char *argv[]) {
 
     if (ofmArg.empty()) {
         cerr << "Error: Missing 'ofm' argument" << endl;
+        exit(1);
+    }
+
+    if (readLabelsFile(lblArg, &labels, &labelCount) != 0) {
+        cerr << "Error: Can't read labels file " << lblArg << endl;
         exit(1);
     }
 
@@ -269,15 +307,16 @@ int main(int argc, char *argv[]) {
 
             if (!inference->failed()) {
                 /* The inference completed and has ok status */
-                for (auto &ofmBuffer : inference->getOfmBuffers()) {
-                    cout << "OFM size: " << ofmBuffer->size() << endl;
+		for (auto result : inference->processOutput(0.23, 4)) {
+	            cout << "\nDetected: " << labels[std::get<0>(result)] << ", confidence:"
+		         << (int)(std::get<1>(result) * 100) << endl;
 
-                    if (print) {
-                        cout << "OFM data: " << *ofmBuffer << endl;
-                    }
-
-                    ofmStream.write(ofmBuffer->data(), ofmBuffer->size());
-                }
+		    auto pos = std::get<2>(result);
+		    if(pos.size() != 0) {
+		        cout << "Location: ymin: " << pos[0] << ", xmin " << pos[1]
+		             << ", ymax " << pos[2] << ", xmax " << pos[3] << endl;
+		    }
+		}
 
                 /* Read out PMU counters if configured */
                 if (std::count(enabledCounters.begin(), enabledCounters.end(), 0) <

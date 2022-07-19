@@ -22,6 +22,7 @@
 #include <uapi/ethosu.h>
 
 #include <algorithm>
+#include <queue>
 #include <exception>
 #include <iostream>
 
@@ -134,6 +135,8 @@ vector<size_t> getSubGraphDims(const tflite::SubGraph *subgraph, const flatbuffe
     for (auto index = tensorMap->begin(); index != tensorMap->end(); ++index) {
         auto tensor = subgraph->tensors()->Get(*index);
         size_t size = getShapeSize(tensor->shape());
+	//Fix object detection issue
+	size = size == 1 ? 1024 : size;
         size *= getTensorTypeSize(tensor->type());
 
         if (size > 0) {
@@ -142,6 +145,35 @@ vector<size_t> getSubGraphDims(const tflite::SubGraph *subgraph, const flatbuffe
     }
 
     return dims;
+}
+
+vector<vector<size_t>> getSubGraphShapes(const tflite::SubGraph *subgraph, const flatbuffers::Vector<int32_t> *tensorMap) {
+    vector<vector<size_t>> shapes;
+
+    for (auto index = tensorMap->begin(); index != tensorMap->end(); ++index) {
+        auto tensor = subgraph->tensors()->Get(*index);
+        auto shape = tensor->shape();
+
+	vector<size_t> tmp;
+        for (auto it = shape->begin(); it != shape->end(); ++it) {
+            tmp.push_back(*it);
+        }
+
+        shapes.push_back(tmp);
+    }
+
+    return shapes;
+}
+
+vector<int> getSubGraphTypes(const tflite::SubGraph *subgraph, const flatbuffers::Vector<int32_t> *tensorMap) {
+    vector<int> types;
+
+    for (auto index = tensorMap->begin(); index != tensorMap->end(); ++index) {
+        auto tensor = subgraph->tensors()->Get(*index);
+        types.push_back(tensor->type());
+    }
+
+    return types;
 }
 
 } // namespace
@@ -307,10 +339,14 @@ Network::Network(const Device &device, shared_ptr<Buffer> &buffer) : fd(-1), buf
     // Get input dimensions for first subgraph
     auto *subgraph = *model->subgraphs()->begin();
     ifmDims        = getSubGraphDims(subgraph, subgraph->inputs());
+    ifmShapes      = getSubGraphShapes(subgraph, subgraph->inputs());
+    ifmTypes       = getSubGraphTypes(subgraph, subgraph->inputs());
 
     // Get output dimensions for last subgraph
     subgraph = *model->subgraphs()->rbegin();
     ofmDims  = getSubGraphDims(subgraph, subgraph->outputs());
+    ofmShapes= getSubGraphShapes(subgraph, subgraph->outputs());
+    ofmTypes = getSubGraphTypes(subgraph, subgraph->outputs());
 }
 
 Network::~Network() {
@@ -327,6 +363,14 @@ shared_ptr<Buffer> Network::getBuffer() {
 
 const std::vector<size_t> &Network::getIfmDims() const {
     return ifmDims;
+}
+
+const std::vector<std::vector<size_t>> &Network::getIfmShapes() const {
+    return ifmShapes;
+}
+
+const std::vector<int> &Network::getIfmTypes() const {
+    return ifmTypes;
 }
 
 size_t Network::getIfmSize() const {
@@ -351,6 +395,44 @@ size_t Network::getOfmSize() const {
     }
 
     return size;
+}
+
+void Network::convertInputData(uint8_t* data, int ifmIndex) {
+#define MODEL_INPUT_MEAN 127.5f
+#define MODEL_INPUT_STD 127.5f
+
+    auto shapes = ifmShapes[ifmIndex];
+    int size = shapes[2] * shapes[1] * shapes[3];
+
+    switch (ifmTypes[ifmIndex])
+    {
+        case tflite::TensorType::TensorType_UINT8:
+            break;
+        case tflite::TensorType::TensorType_INT8:
+            for (int i = size - 1; i >= 0; i--)
+            {
+                reinterpret_cast<int8_t*>(data)[i] =
+                    static_cast<int>(data[i]) - 127;
+            }
+            break;
+        case tflite::TensorType::TensorType_FLOAT32:
+            for (int i = size - 1; i >= 0; i--)
+            {
+                reinterpret_cast<float*>(data)[i] =
+                    (static_cast<int>(data[i]) - MODEL_INPUT_MEAN) / MODEL_INPUT_STD;
+            }
+            break;
+        default:
+            assert("Unknown input tensor data type");
+    }
+}
+
+const std::vector<std::vector<size_t>> &Network::getOfmShapes() const {
+    return ofmShapes;
+}
+
+const std::vector<int> &Network::getOfmTypes() const {
+    return ofmTypes;
 }
 
 /****************************************************************************
@@ -451,6 +533,85 @@ uint64_t Inference::getCycleCounter() const {
     eioctl(fd, ETHOSU_IOCTL_INFERENCE_STATUS, static_cast<void *>(&uapi));
 
     return uapi.pmu_count.cycle_count;
+}
+
+InferenceResult Inference::processOutput(float threshold, size_t numResults) {
+    InferenceResult result;
+    if (ofmBuffers.size() > 1) {
+        /* Object Detection Demo */
+        auto output_locations = (float*)ofmBuffers[0]->data();
+        auto output_classes = (float*)ofmBuffers[1]->data();
+        auto output_scores = (float*)ofmBuffers[2]->data();
+        auto output_count = (float*)ofmBuffers[3]->data();
+
+	if(numResults > static_cast<size_t>(*output_count)) {
+	    numResults = static_cast<size_t>(*output_count);
+	}
+
+        for (size_t j = 0; j < numResults; j++) {
+	    std::vector<float> pos;
+	    pos.push_back(output_locations[j * 4]);
+	    pos.push_back(output_locations[j * 4 + 1]);
+	    pos.push_back(output_locations[j * 4 + 2]);
+	    pos.push_back(output_locations[j * 4 + 3]);
+
+	    int label_num = static_cast<int>(output_classes[j]);
+	    float scores = output_scores[j];
+            result.push_back(std::make_tuple(label_num, scores, pos));
+        }
+    } else {
+        /* Image Classification Demo */
+        // Will contain top N results in ascending order.
+        std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>,
+        std::greater<std::pair<float, int>>> top_result_pq;
+
+	auto ofmType = (tflite::TensorType)network->getOfmTypes()[0];
+	auto data = ofmBuffers[0]->data();
+        const long count = ofmBuffers[0]->capacity() / getTensorTypeSize(ofmType);
+        for (int i = 0; i < count; ++i) {
+            float value;
+            switch (ofmType) {
+                case tflite::TensorType::TensorType_FLOAT32: {
+                    const float* predictions = reinterpret_cast<const float*>(data);
+                    value = predictions[i];
+                    break;
+                }
+                case tflite::TensorType::TensorType_UINT8: {
+                    const uint8_t* predictions = reinterpret_cast<const uint8_t*>(data);
+                    value = predictions[i] / 255.0;
+                    break;
+                }
+                case tflite::TensorType::TensorType_INT8: {
+                    const int8_t* predictions = reinterpret_cast<const int8_t*>(data);
+                    value = ((int)predictions[i] + 128) / 255.0;
+                    break;
+                }
+                default:
+                    cout << "Unknown output tensor data type" << endl;
+                    exit(1);
+            }
+            // Only add it if it beats the threshold and has a chance at being in the top N.
+            if (value < threshold) {
+                continue;
+            }
+
+            top_result_pq.push(std::pair<float, int>(value, i));
+
+            // If at capacity, kick the smallest value out.
+            if (top_result_pq.size() > numResults) {
+                top_result_pq.pop();
+            }
+        }
+
+        // Copy to output vector and reverse into descending order.
+        while (!top_result_pq.empty()) {
+	    auto tmp = top_result_pq.top();
+            result.push_back(std::make_tuple(tmp.second, tmp.first, std::vector<float>()));
+            top_result_pq.pop();
+        }
+        std::reverse(result.begin(), result.end());
+    }
+    return result;
 }
 
 int Inference::getFd() const {

@@ -166,16 +166,29 @@ public:
     int ioctl(unsigned long cmd, void *data = nullptr);
     std::shared_ptr<Buffer> getBuffer();
     const std::vector<size_t> &getIfmDims() const;
+    const std::vector<std::vector<size_t>> &getIfmShapes() const;
+    const std::vector<int> &getIfmTypes() const;
     size_t getIfmSize() const;
     const std::vector<size_t> &getOfmDims() const;
+    const std::vector<std::vector<size_t>> &getOfmShapes() const;
+    const std::vector<int> &getOfmTypes() const;
     size_t getOfmSize() const;
+
+    void convertInputData(uint8_t* data, int ifmIndex);
 
 private:
     int fd;
     std::shared_ptr<Buffer> buffer;
     std::vector<size_t> ifmDims;
+    std::vector<std::vector<size_t>> ifmShapes;
+    std::vector<int> ifmTypes;
+
     std::vector<size_t> ofmDims;
+    std::vector<std::vector<size_t>> ofmShapes;
+    std::vector<int> ofmTypes;
 };
+
+typedef std::vector<std::tuple<int, float, std::vector<float>>> InferenceResult;
 
 class Inference {
 public:
@@ -217,6 +230,7 @@ public:
     int wait(int64_t timeoutNanos = -1) const;
     const std::vector<uint32_t> getPmuCounters() const;
     uint64_t getCycleCounter() const;
+    InferenceResult processOutput(float threshold, size_t num);
     bool failed() const;
     int getFd() const;
     const std::shared_ptr<Network> getNetwork() const;
