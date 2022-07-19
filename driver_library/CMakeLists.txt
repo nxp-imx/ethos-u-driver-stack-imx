@@ -22,7 +22,7 @@ cmake_minimum_required(VERSION 3.0.2)
 project("driver_library" VERSION 1.0.0 LANGUAGES C CXX)
 
 # Build the driver library
-add_library(ethosu STATIC "src/ethosu.cpp")
+add_library(ethosu SHARED "src/ethosu.cpp")
 
 # Add public include directory and select which files to install 
 target_include_directories(ethosu PUBLIC "include")
