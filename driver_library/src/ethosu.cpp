@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2020-2021 Arm Limited. All rights reserved.
+ * Copyright 2020-2022 NXP
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -20,7 +21,7 @@
 #include "flatbuffers/flexbuffers.h"
 
 #include <ethosu.hpp>
-#include <linux/ethosu.h>
+#include <ethosu.h>
 
 #include <algorithm>
 #include <queue>

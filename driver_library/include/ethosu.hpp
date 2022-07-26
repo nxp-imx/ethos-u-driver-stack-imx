@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2020-2021 Arm Limited. All rights reserved.
+ * Copyright 2020-2022 NXP
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -50,6 +51,8 @@ public:
 private:
     std::string msg;
 };
+
+#define ETHOSU_PMU_EVENT_MAX 4
 
 /**
  * Sematic Version : major.minor.patch

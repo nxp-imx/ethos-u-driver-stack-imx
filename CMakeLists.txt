@@ -37,7 +37,7 @@ endif()
 string(REGEX REPLACE "(.*)gcc$" "\\1" CROSS_COMPILE "${CMAKE_C_COMPILER}")
 
 # Add include directory
-include_directories("include")
+include_directories("kernel_driver/include")
 
 # Build driver library
 add_subdirectory(driver_library)
@@ -46,4 +46,4 @@ add_subdirectory(driver_library)
 add_subdirectory(utils)
 
 install(FILES python/label_image.py DESTINATION "bin/ethosu/examples")
-install(FILES include/linux/ethosu.h DESTINATION "include/linux")
+install(FILES kernel_driver/include/ethosu.h DESTINATION "include")

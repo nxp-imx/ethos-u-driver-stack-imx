@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-#include <uapi/ethosu.h>
+#include <ethosu.h>
 
 #include <ethosu.hpp>
 #include <exception>
