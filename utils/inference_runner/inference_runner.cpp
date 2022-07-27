@@ -34,7 +34,6 @@ using namespace EthosU;
 
 namespace {
 int64_t defaultTimeout = 60000000000;
-int64_t defaultArenaSizeOfMB = 16;
 
 void help(const string exe) {
     cerr << "Usage: " << exe << " [ARGS]\n";
@@ -49,7 +48,6 @@ void help(const string exe) {
     cerr << "                    PMU counter to enable followed by eventid, can be passed multiple times.\n";
     cerr << "    -C --cycles     Enable cycle counter for inference.\n";
     cerr << "    -t --timeout    Timeout in nanoseconds (default " << defaultTimeout << ").\n";
-    cerr << "    -a --arena      TFLite-micro arena memory size (default " << defaultArenaSizeOfMB << "MB).\n";
     cerr << "    -p              Print OFM.\n";
     cerr << endl;
 }
@@ -101,8 +99,7 @@ shared_ptr<Inference> createInference(Device &device,
                                       shared_ptr<Network> &network,
                                       const string &filename,
                                       const std::vector<uint8_t> &counters,
-                                      bool enableCycleCounter,
-                                      int64_t arenaSizeOfMB = defaultArenaSizeOfMB) {
+                                      bool enableCycleCounter) {
     // Open IFM file
     ifstream stream(filename, ios::binary);
     if (!stream.is_open()) {
@@ -115,26 +112,43 @@ shared_ptr<Inference> createInference(Device &device,
     size_t size = stream.tellg();
     stream.seekg(0, ios_base::beg);
 
-    // Create buffer for tensor arena
-    size_t arena_buffer_size = arenaSizeOfMB << 20;
-    shared_ptr<Buffer> arena_buffer = make_shared<Buffer>(device, arena_buffer_size);
-    arena_buffer->resize(arena_buffer_size);
-    auto inference = make_shared<Inference>(network, arena_buffer, counters, enableCycleCounter);
-
-    // Set input buffer
-    char s_buffer[DECODE_BUFFER_SIZE];
-    stream.read(s_buffer, size);
-    if (!stream) {
-        cerr << "Error: Failed to read IFM" << endl;
+#if 0
+    if (size != network->getIfmSize()) {
+        cerr << "Error: IFM size does not match network size. filename=" << filename << ", size=" << size
+             << ", network=" << network->getIfmSize() << endl;
         exit(1);
     }
+#endif
 
-    char* input_data = inference->getInputData(0);
-    auto ifmShape = network->getIfmShapes()[0];
-    IMAGE_Decode((uint8_t*)s_buffer, (uint8_t*)input_data, ifmShape[1], ifmShape[2], ifmShape[3]);
-    network->convertInputData((uint8_t*)input_data, 0);
+    // Create IFM buffers
+    char s_buffer[DECODE_BUFFER_SIZE];
+    size_t buffer_size = max(size, network->getIfmDims()[0]);
+    vector<shared_ptr<Buffer>> ifm;
+//    for (auto size : network->getIfmDims()) {
+        shared_ptr<Buffer> buffer = make_shared<Buffer>(device, buffer_size);
+        buffer->resize(network->getIfmDims()[0]);
+        stream.read(s_buffer, size);
 
-    return inference;
+	auto ifmShape = network->getIfmShapes()[0];
+	IMAGE_Decode((uint8_t*)s_buffer, (uint8_t*)buffer->data(), ifmShape[1], ifmShape[2], ifmShape[3]);
+	network->convertInputData((uint8_t*)buffer->data(), 0);
+
+        if (!stream) {
+            cerr << "Error: Failed to read IFM" << endl;
+            exit(1);
+        }
+
+        ifm.push_back(buffer);
+//    }
+
+    // Create OFM buffers
+    vector<shared_ptr<Buffer>> ofm;
+    for (auto size : network->getOfmDims()) {
+        ofm.push_back(make_shared<Buffer>(device, size));
+    }
+
+    return make_shared<Inference>(
+        network, ifm.begin(), ifm.end(), ofm.begin(), ofm.end(), counters, enableCycleCounter);
 }
 
 ostream &operator<<(ostream &os, Buffer &buf) {
@@ -163,7 +177,6 @@ int main(int argc, char *argv[]) {
     bool enableCycleCounter = false;
     std::vector<string> labels;
     size_t labelCount;
-    int64_t arenaSizeOfMB      = defaultArenaSizeOfMB;
 
 
     for (int i = 1; i < argc; ++i) {
@@ -190,10 +203,6 @@ int main(int argc, char *argv[]) {
         } else if (arg == "--timeout" || arg == "-t") {
             rangeCheck(++i, argc, arg);
             timeout = stoll(argv[i]);
-        } else if (arg == "--arena" || arg == "-a") {
-            rangeCheck(++i, argc, arg);
-            arenaSizeOfMB = stoll(argv[i]);
-            cout << "Setting TFLite-micro arena size to " << arenaSizeOfMB << "MB" << endl;
         } else if (arg == "--pmu" || arg == "-P") {
             unsigned pmu = 0, event = 0;
             rangeCheck(++i, argc, arg);
@@ -265,8 +274,7 @@ int main(int argc, char *argv[]) {
         list<shared_ptr<Inference>> inferences;
         for (auto &filename : ifmArg) {
             cout << "Create inference" << endl;
-            inferences.push_back(createInference(device, network, filename, 
-                                                 enabledCounters, enableCycleCounter, arenaSizeOfMB));
+            inferences.push_back(createInference(device, network, filename, enabledCounters, enableCycleCounter));
         }
 
         cout << "Wait for inferences" << endl;

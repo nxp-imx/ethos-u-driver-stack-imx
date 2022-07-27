@@ -28,6 +28,6 @@ target_link_libraries(interpreter_runner PRIVATE ethosu flatbuffers)
 
 
 # Install target
-install(TARGETS inference_runner DESTINATION "bin")
+install(TARGETS inference_runner DESTINATION "bin/ethosu/examples")
 install(TARGETS interpreter_runner DESTINATION "bin/ethosu/examples")
 

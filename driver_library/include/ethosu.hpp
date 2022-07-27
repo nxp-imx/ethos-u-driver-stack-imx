@@ -26,6 +26,7 @@
 #include <vector>
 
 #define ETHOSU_PMU_EVENT_MAX 4
+#define DEFAULT_ARENA_SIZE_OF_MB 16
 /*
  *The following undef are necessary to avoid clash with macros in GNU C Library
  * if removed the following warning/error are produced:
@@ -184,8 +185,13 @@ public:
     int32_t getInputDataOffset(int index);
     int32_t getOutputDataOffset(int index);
 
+    const Device &getDevice() const;
+    bool isVelaModel() const;
+
 private:
     int fd;
+    const Device &device;
+    bool _isVelaModel;
     std::shared_ptr<Buffer> buffer;
     std::vector<size_t> ifmDims;
     std::vector<std::vector<size_t>> ifmShapes;
@@ -213,6 +219,11 @@ public:
         std::copy(ofmBegin, ofmEnd, std::back_inserter(ofmBuffers));
         std::vector<uint32_t> counterConfigs = initializeCounterConfig();
 
+        // Init tensor arena buffer
+        size_t arena_buffer_size = DEFAULT_ARENA_SIZE_OF_MB << 20;
+        arenaBuffer = std::make_shared<Buffer>(network->getDevice(), arena_buffer_size);
+        arenaBuffer->resize(arena_buffer_size);
+
         create(counterConfigs, false);
     }
     template <typename T, typename U>
@@ -231,6 +242,11 @@ public:
         if (counters.size() > counterConfigs.size())
             throw EthosU::Exception("PMU Counters argument to large.");
 
+        // Init tensor arena buffer
+        size_t arena_buffer_size = DEFAULT_ARENA_SIZE_OF_MB << 20;
+        arenaBuffer = std::make_shared<Buffer>(network->getDevice(), arena_buffer_size);
+        arenaBuffer->resize(arena_buffer_size);
+
         std::copy(counters.begin(), counters.end(), counterConfigs.begin());
         create(counterConfigs, enableCycleCounter);
     }
@@ -240,9 +256,7 @@ public:
               const T &arenaBuffer,
               const U &counters,
               bool enableCycleCounter) :
-        network(network) {
-        ifmBuffers.push_back(arenaBuffer);
-
+        network(network), arenaBuffer(arenaBuffer) {
         std::vector<uint32_t> counterConfigs = initializeCounterConfig();
 
         if (counters.size() > counterConfigs.size())
@@ -276,6 +290,7 @@ private:
     const std::shared_ptr<Network> network;
     std::vector<std::shared_ptr<Buffer>> ifmBuffers;
     std::vector<std::shared_ptr<Buffer>> ofmBuffers;
+    std::shared_ptr<Buffer> arenaBuffer;
 };
 
 struct TensorInfo{
@@ -303,7 +318,8 @@ enum TensorType{
 
 class Interpreter {
 public:
-    Interpreter(const char *model, const char *device = "/dev/ethosu0", int64_t arenaSizeOfMB = 16);
+    Interpreter(const char *model, const char *device = "/dev/ethosu0",
+                int64_t arenaSizeOfMB = DEFAULT_ARENA_SIZE_OF_MB);
     Interpreter(const std::string &model) : Interpreter(model.c_str()) {}
 
     void SetPmuCycleCounters(std::vector<uint8_t> counters, bool enableCycleCounter = true);

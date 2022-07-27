@@ -111,6 +111,8 @@ struct ModelInfo{
 
     std::vector<int32_t> inputDataOffset;
     std::vector<int32_t> outputDataOffset;
+
+    bool isVelaModel;
 };
 
 
@@ -197,6 +199,7 @@ vector<int> getSubGraphTypes(const tflite::SubGraph *subgraph, const flatbuffers
 #define OFFLINE_MEM_ALLOC_METADATA "OfflineMemoryAllocation"
 ModelInfo getModelInfo(const tflite::Model *model) {
     ModelInfo info;
+    info.isVelaModel = false;
     //Get adress offset
     auto *md = model->metadata();
     const int32_t* address_offsets = NULL;
@@ -208,11 +211,8 @@ ModelInfo getModelInfo(const tflite::Model *model) {
             // grab raw buffer and dump it..
             auto meta_vec = model->buffers()->Get(meta->buffer())->data();
             address_offsets = reinterpret_cast<const int32_t*>(meta_vec->data() + 12);
+            info.isVelaModel = true;
             }
-    }
-
-    if (address_offsets == NULL){
-        throw EthosU::Exception("Can't get vela metadata, only support models compiled by vela");
     }
 
     //Get input info
@@ -237,7 +237,9 @@ ModelInfo getModelInfo(const tflite::Model *model) {
         info.inputTypes.push_back(tensor->type());
         info.inputDims.push_back(size);
         info.inputShapes.push_back(tmp);
-        info.inputDataOffset.push_back(address_offsets[*index]);
+        if (address_offsets != NULL) {
+            info.inputDataOffset.push_back(address_offsets[*index]);
+        }
     }
 
     //Get output info
@@ -269,7 +271,9 @@ ModelInfo getModelInfo(const tflite::Model *model) {
         info.outputDims.push_back(size);
 
         for (auto index = tensorMap->begin(); index != tensorMap->end(); ++index) {
-            info.outputDataOffset.push_back(address_offsets[*index]);
+            if (address_offsets != NULL) {
+                info.outputDataOffset.push_back(address_offsets[*index]);
+            }
             info.outputTypes.push_back(tflite::TensorType::TensorType_FLOAT32);
         }
     } else {
@@ -288,7 +292,9 @@ ModelInfo getModelInfo(const tflite::Model *model) {
             info.outputTypes.push_back(tensor->type());
             info.outputDims.push_back(size);
             info.outputShapes.push_back(tmp);
-            info.outputDataOffset.push_back(address_offsets[*index]);
+            if (address_offsets != NULL) {
+                info.outputDataOffset.push_back(address_offsets[*index]);
+            }
         }
     }
 
@@ -445,7 +451,7 @@ int Buffer::getFd() const {
  * Network
  ****************************************************************************/
 
-Network::Network(const Device &device, shared_ptr<Buffer> &buffer) : fd(-1), buffer(buffer) {
+Network::Network(const Device &device, shared_ptr<Buffer> &buffer) : device(device), fd(-1), buffer(buffer) {
     // Create buffer handle
     ethosu_uapi_network_create uapi;
     uapi.fd = buffer->getFd();
@@ -468,17 +474,18 @@ Network::Network(const Device &device, shared_ptr<Buffer> &buffer) : fd(-1), buf
     ofmShapes       = info.outputShapes;
     ofmTypes        = info.outputTypes;
     outputDataOffset= info.outputDataOffset;
+    _isVelaModel    = info.isVelaModel;
 }
 int32_t Network::getInputDataOffset(int index){
     if (index > inputDataOffset.size() + 1){
-        throw Exception("Invalid input index");
+        throw Exception("Invalid input index or non vela model");
     }
     return inputDataOffset[index];
 }
 
 int32_t Network::getOutputDataOffset(int index){
     if (index > outputDataOffset.size() + 1){
-        throw Exception("Invalid output index");
+        throw Exception("Invalid output index or non vela model");
     }
     return outputDataOffset[index];
 }
@@ -577,6 +584,14 @@ const std::vector<int> &Network::getOfmTypes() const {
     return ofmTypes;
 }
 
+const Device &Network::getDevice() const {
+    return device;
+}
+
+bool Network::isVelaModel() const {
+    return _isVelaModel;
+}
+
 /****************************************************************************
  * Inference
  ****************************************************************************/
@@ -601,6 +616,7 @@ void Inference::create(std::vector<uint32_t> &counterConfigs, bool cycleCounterE
     }
 
     uapi.ifm_count = 0;
+    uapi.ifm_fd[uapi.ifm_count++] = arenaBuffer->getFd();
     for (auto it : ifmBuffers) {
         uapi.ifm_fd[uapi.ifm_count++] = it->getFd();
     }
@@ -670,23 +686,21 @@ const std::vector<uint32_t> Inference::getPmuCounters() const {
 }
 
 char* Inference::getInputData(int index){
-    int32_t offset = network->getInputDataOffset(index);
-
-    if (ifmBuffers.size() < 1 || ifmBuffers[0]->capacity() < offset) {
-        throw Exception("Tenor arena buffer is not initialized");
+    if (network->isVelaModel() && ifmBuffers.size() == 0) {
+         int32_t offset = network->getInputDataOffset(index);
+         return arenaBuffer->data() + offset;
+    } else {
+         return ifmBuffers[index]->data();
     }
-
-    return ifmBuffers[0]->data() + offset;
 }
 
 char* Inference::getOutputData(int index){
-    int32_t offset = network->getOutputDataOffset(index);
-
-    if (ifmBuffers.size() < 1 || ifmBuffers[0]->capacity() < offset) {
-        throw Exception("Tenor arena buffer is not initialized");
+    if (network->isVelaModel() && ofmBuffers.size() == 0) {
+        int32_t offset = network->getOutputDataOffset(index);
+        return arenaBuffer->data() + offset;
+    } else {
+        return ofmBuffers[index]->data();
     }
-
-    return ifmBuffers[0]->data() + offset;
 }
 
 uint64_t Inference::getCycleCounter() const {
@@ -824,6 +838,9 @@ Interpreter::Interpreter(const char *model, const char *_device, int64_t _arenaS
     networkBuffer->resize(size);
     stream.read(networkBuffer->data(), size);
     network = make_shared<Network>(device, networkBuffer);
+    if (!network->isVelaModel()) {
+         throw Exception("Only support models compiled by vela.");
+    }
 
     // Init tensor arena buffer
     size_t arena_buffer_size = arenaSizeOfMB << 20;

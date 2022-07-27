@@ -183,29 +183,54 @@ int main(int argc, char *argv[]) {
                 exit(1);
         }
 
+        interpreter->Invoke();
+
+        /* The inference completed and has ok status */
+        InferenceResult results;
         auto outputInfo = interpreter->GetOutputInfo();
-        std::vector<void*> outputData;
-        for (size_t i = 0; i < outputInfo.size(); i ++) {
-            switch (outputInfo[i].type) {
+        if (outputInfo.size() > 1 ) {
+            //for ssd model
+            std::vector<void*> outputData;
+            for (size_t i = 0; i < outputInfo.size(); i ++) {
+                switch (outputInfo[i].type) {
+                    case TensorType::TensorType_UINT8:
+                        outputData.push_back(interpreter->typed_output_buffer<uint8_t>(i));
+                        break;
+                    case TensorType::TensorType_INT8:
+                        outputData.push_back(interpreter->typed_output_buffer<int8_t>(i));
+                        break;
+                    case TensorType::TensorType_FLOAT32:
+                        outputData.push_back(interpreter->typed_output_buffer<float>(i));
+                        break;
+                    default:
+                        cerr << "Unknown output tensor data type" << endl;
+                        exit(1);
+                }
+            }
+            results = getBoundingBoxes(outputData, 4);
+        } else {
+            size_t count = outputInfo[0].shape[1];
+            // for image classification model
+            switch (outputInfo[0].type) {
                 case TensorType::TensorType_UINT8:
-                    outputData.push_back(interpreter->typed_output_buffer<uint8_t>(i));
+                    results = getTopN<uint8_t>(interpreter->typed_output_buffer<uint8_t>(0),
+                                               0.23, count, 0, 255.0);
                     break;
                 case TensorType::TensorType_INT8:
-                    outputData.push_back(interpreter->typed_output_buffer<int8_t>(i));
+                    results = getTopN<int8_t>(interpreter->typed_output_buffer<int8_t>(0),
+                                              0.23, count, 128, 255.0);
                     break;
                 case TensorType::TensorType_FLOAT32:
-                    outputData.push_back(interpreter->typed_output_buffer<float>(i));
+                    results = getTopN<float>(interpreter->typed_output_buffer<float>(0),
+                                             0.23, count, 0, 1.0);
                     break;
                 default:
                     cerr << "Unknown output tensor data type" << endl;
                     exit(1);
             }
         }
-        
 
-        interpreter->Invoke();
-        /* The inference completed and has ok status */
-        for (auto result : getBoundingBoxes(outputData, 4)) {
+        for (auto result : results) {
             cout << "\nDetected: " << labels[std::get<0>(result)] << ", confidence:"
                  << (int)(std::get<1>(result) * 100) << endl;
 

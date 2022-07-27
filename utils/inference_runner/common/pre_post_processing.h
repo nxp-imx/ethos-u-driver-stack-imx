@@ -19,6 +19,8 @@
 #include <fstream>
 #include <vector>
 #include <tuple>
+#include <queue>
+#include <algorithm>
 
 #define DECODE_BUFFER_SIZE 1920 * 1080 * 3
 
@@ -106,37 +108,15 @@ static InferenceResult getBoundingBoxes(std::vector<void*>data, size_t numResult
 }
 
 
-#if 0
-static InferenceResult getTopN(fstd::vector<char*>data, float threshold, size_t numResults) {
+template <class T>
+static InferenceResult getTopN(T* data, float threshold, int count, float zp, float scale) {
    // Will contain top N results in ascending order.
+   InferenceResult result;
    std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>,
    std::greater<std::pair<float, int>>> top_result_pq;
 
-   auto ofmType = (tflite::TensorType)network->getOfmTypes()[0];
-   auto data = getOutputData(0);
-   const long count = network->getOfmDims()[0] / getTensorTypeSize(ofmType);
    for (int i = 0; i < count; ++i) {
-       float value;
-       switch (ofmType) {
-           case tflite::TensorType::TensorType_FLOAT32: {
-               const float* predictions = reinterpret_cast<const float*>(data);
-               value = predictions[i];
-               break;
-           }
-           case tflite::TensorType::TensorType_UINT8: {
-               const uint8_t* predictions = reinterpret_cast<const uint8_t*>(data);
-               value = predictions[i] / 255.0;
-               break;
-           }
-           case tflite::TensorType::TensorType_INT8: {
-               const int8_t* predictions = reinterpret_cast<const int8_t*>(data);
-               value = ((int)predictions[i] + 128) / 255.0;
-               break;
-           }
-           default:
-               cout << "Unknown output tensor data type" << endl;
-               exit(1);
-       }
+       float value = (data[i] + zp) / scale;
        // Only add it if it beats the threshold and has a chance at being in the top N.
        if (value < threshold) {
            continue;
@@ -145,7 +125,7 @@ static InferenceResult getTopN(fstd::vector<char*>data, float threshold, size_t 
        top_result_pq.push(std::pair<float, int>(value, i));
 
        // If at capacity, kick the smallest value out.
-       if (top_result_pq.size() > numResults) {
+       if (top_result_pq.size() > 4) {
            top_result_pq.pop();
        }
    }
@@ -159,4 +139,3 @@ static InferenceResult getTopN(fstd::vector<char*>data, float threshold, size_t 
    std::reverse(result.begin(), result.end());
     return result;
 }
-#endif
