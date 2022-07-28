@@ -22,12 +22,11 @@ import os
 
 bind11_inc = pybind11.get_include()
 ethosu_inc = './driver_library/include/'
-lib_path = os.getenv("ETHOSU_LIBRARY_PATH", "/usr/lib")
 
 wrapper = Extension('ethosu',
                     include_dirs = [bind11_inc, ethosu_inc],
                     libraries = ['ethosu'],
-                    library_dirs = [lib_path],
+                    library_dirs = ["."],
                     sources = ['python/interpreter_wrapper.cpp'])
 
 setup(name = "ethosu",
