@@ -360,6 +360,8 @@ ostream &operator<<(ostream &out, const SemanticVersion &v) {
 Device::Device(const char *device) {
     fd = eopen(device, O_RDWR | O_NONBLOCK);
 
+    //Add some delay to fix the issue about communication instability
+    usleep(10 * 1000);
     //Send Ping
     this->ioctl(ETHOSU_IOCTL_PING);
     //Send version request
