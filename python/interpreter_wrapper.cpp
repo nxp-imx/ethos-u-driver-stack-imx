@@ -162,7 +162,7 @@ private:
     const std::vector<TensorInfo> outputInfo_;
 };
 
-PYBIND11_MODULE(ethosu, m) {
+PYBIND11_MODULE(interpreter, m) {
     m.doc() = "ethosu python API";
 
     py::class_<InterpreterWrapper>(m, "Interpreter")
@@ -174,6 +174,6 @@ PYBIND11_MODULE(ethosu, m) {
         .def("invoke", &InterpreterWrapper::Invoke, py::arg("timeout_nanos") = 60000000000)
         .def("__repr__",
             [](const Interpreter &a) {
-                return "<ethosu.Interpreter>";
+                return "<ethosu.interpreter.Interpreter>";
             });
 }
