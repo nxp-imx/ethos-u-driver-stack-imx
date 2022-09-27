@@ -9,73 +9,12 @@ subsystem, consisting of an Arm Cortex-M of choice and an Arm Ethos-U NPU.
 The driver stack comes with a CMake based build system. A toolchain file is
 provided for reference how to cross compile for an Aarch64 based system.
 
-Building the kernel modules requires a configured Linux kernel source tree. How
-to download and configure the Linux kernel goes beyond the scope of this readme.
-Please refer to the Linux kernel official documentation.
 
 ```
 $ mkdir build
 $ cd build
-$ cmake .. -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchain/aarch64-linux-gnu.cmake -DKDIR=<Kernel directory>
+$ cmake .. -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchain/aarch64-linux-gnu.cmake
 $ make
-```
-
-## DTB
-
-The kernel driver uses the mailbox APIs as a doorbell mechanism.
-
-```
-/ {
-  reserved-memory {
-    #address-cells = <2>;
-    #size-cells = <2>;
-    ranges;
-
-    ethosu_msg: ethosu_msg@80000000 {
-      compatible = "shared-dma-pool";
-      reg = <0 0x80000000 0 0x00040000>;
-      no-map;
-    };
-
-    ethosu_reserved: ethosu_reserved@80040000 {
-      compatible = "shared-dma-pool";
-      reg = <0 0x80040000 0 0x00040000>;
-      no-map;
-    };
-  };
-
-  ethosu_mailbox: mhu@6ca00000 {
-    compatible = "arm,mhu", "arm,primecell";
-    reg = <0x0 0x6ca00000 0x0 0x1000>;
-    interrupts = <0 168 4>;
-    interrupt-names = "npu_rx";
-    #mbox-cells = <1>;
-    clocks = <&soc_refclk100mhz>;
-    clock-names = "apb_pclk";
-  };
-
-  ethosu_mcu {
-    compatible ="arm, ethosu-sgm775-rproc";
-    reg = <0x0 0x500f0000 0x0 0x1000>,
-          <0x0 0x50100000 0x0 0x100000>;
-    reg-names = "bridge", "firmware";
-  };
-
-  ethosu {
-    #address-cells = <2>;
-    #size-cells = <2>;
-
-    compatible = "arm,ethosu";
-    reg = <0 0x80000000 0 0x00010000>,
-          <0 0x80010000 0 0x00010000>;
-    reg-names = "in_queue", "out_queue";
-    memory-region = <&ethosu_reserved>;
-    dma-ranges = <0 0x60000000 0 0x80000000 0 0x20000000>;
-    mboxes= <&ethosu_mailbox 0>, <&ethosu_mailbox 0>;
-    mbox-names = "tx", "rx";
-    ethosu-rproc = <&ethosu_mcu>;
-  };
-};
 ```
 
 # Documentation
