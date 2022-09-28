@@ -632,4 +632,97 @@ vector<shared_ptr<Buffer>> &Inference::getOfmBuffers() {
     return ofmBuffers;
 }
 
+/****************************************************************************
+ * Interpreter
+ ****************************************************************************/
+Interpreter::Interpreter(const char *model, const char *_device, int64_t _arenaSizeOfMB):
+             device(_device), arenaSizeOfMB(_arenaSizeOfMB){
+    //Send capabilities request
+    Capabilities capabilities = device.capabilities();
+
+    cout << "Capabilities:" << endl
+         << "\tversion_status:" << unsigned(capabilities.hwId.versionStatus) << endl
+         << "\tversion:" << capabilities.hwId.version << endl
+         << "\tproduct:" << capabilities.hwId.product << endl
+         << "\tarchitecture:" << capabilities.hwId.architecture << endl
+         << "\tdriver:" << capabilities.driver << endl
+         << "\tmacs_per_cc:" << unsigned(capabilities.hwCfg.macsPerClockCycle) << endl
+         << "\tcmd_stream_version:" << unsigned(capabilities.hwCfg.cmdStreamVersion) << endl
+         << "\tcustom_dma:" << std::boolalpha << capabilities.hwCfg.customDma << endl;
+
+    // Init network
+    ifstream stream(model, ios::binary);
+    if (!stream.is_open()) {
+         throw Exception("Failed to open model file");
+    }
+
+    stream.seekg(0, ios_base::end);
+    size_t size = stream.tellg();
+    stream.seekg(0, ios_base::beg);
+
+    networkBuffer = make_shared<Buffer>(device, size);
+    networkBuffer->resize(size);
+    stream.read(networkBuffer->data(), size);
+    network = make_shared<Network>(device, networkBuffer);
+    if (!network->isVelaModel()) {
+         throw Exception("Only support models compiled by vela.");
+    }
+
+    // Init tensor arena buffer
+    size_t arena_buffer_size = arenaSizeOfMB << 20;
+    arenaBuffer = make_shared<Buffer>(device, arena_buffer_size);
+    arenaBuffer->resize(arena_buffer_size);
+}
+
+void Interpreter::SetPmuCycleCounters(vector<uint8_t> counters, bool cycleCounter) {
+    if (counters.size() != ETHOSU_PMU_EVENT_MAX){
+        throw Exception("PMU event count is invalid.");
+    }
+
+    pmuCounters = counters;
+    enableCycleCounter = cycleCounter;
+}
+
+void Interpreter::Invoke(int64_t timeoutNanos) {
+    inference = make_shared<Inference>(network, arenaBuffer,
+                                pmuCounters, enableCycleCounter);
+    inference->wait(timeoutNanos);
+
+    if (inference->status() != InferenceStatus::OK) {
+        throw Exception("Failed to invoke.");
+    }
+}
+
+std::vector<uint32_t> Interpreter::GetPmuCounters() {
+    return inference->getPmuCounters();
+}
+
+uint64_t Interpreter::GetCycleCounter() {
+    return inference->getCycleCounter();
+}
+
+std::vector<TensorInfo> Interpreter::GetInputInfo() {
+    std::vector<TensorInfo> ret;
+    auto types = network->getIfmTypes();
+    auto shapes = network->getIfmShapes();
+
+    for (int i = 0; i < network->getInputCount(); i ++) {
+        ret.push_back(TensorInfo{types[i], shapes[i]});
+    }
+
+    return ret;
+}
+
+std::vector<TensorInfo> Interpreter::GetOutputInfo(){
+    std::vector<TensorInfo> ret;
+    auto types = network->getOfmTypes();
+    auto shapes = network->getOfmShapes();
+
+    for (int i = 0; i < network->getOutputCount(); i ++) {
+        ret.push_back(TensorInfo{types[i], shapes[i]});
+    }
+
+    return ret;
+}
+
 } // namespace EthosU

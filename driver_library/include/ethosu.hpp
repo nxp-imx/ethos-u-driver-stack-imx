@@ -25,6 +25,8 @@
 #include <vector>
 
 #define DEFAULT_ARENA_SIZE_OF_MB 16
+#define ETHOSU_PMU_EVENT_MAX 4
+
 /*
  *The following undef are necessary to avoid clash with macros in GNU C Library
  * if removed the following warning/error are produced:
@@ -299,6 +301,68 @@ private:
     std::vector<std::shared_ptr<Buffer>> ifmBuffers;
     std::vector<std::shared_ptr<Buffer>> ofmBuffers;
     std::shared_ptr<Buffer> arenaBuffer;
+};
+
+struct TensorInfo{
+    int type;
+    std::vector<size_t> shape;
+};
+
+//Define tflite::TensorType here
+enum TensorType{
+  TensorType_FLOAT32 = 0,
+  TensorType_FLOAT16 = 1,
+  TensorType_INT32 = 2,
+  TensorType_UINT8 = 3,
+  TensorType_INT64 = 4,
+  TensorType_STRING = 5,
+  TensorType_BOOL = 6,
+  TensorType_INT16 = 7,
+  TensorType_COMPLEX64 = 8,
+  TensorType_INT8 = 9,
+  TensorType_FLOAT64 = 10,
+  TensorType_MIN = TensorType_FLOAT32,
+  TensorType_MAX = TensorType_FLOAT64
+
+};
+
+class Interpreter {
+public:
+    Interpreter(const char *model, const char *device = "/dev/ethosu0",
+                int64_t arenaSizeOfMB = DEFAULT_ARENA_SIZE_OF_MB);
+    Interpreter(const std::string &model) : Interpreter(model.c_str()) {}
+
+    void SetPmuCycleCounters(std::vector<uint8_t> counters, bool enableCycleCounter = true);
+    std::vector<uint32_t> GetPmuCounters();
+    uint64_t GetCycleCounter();
+
+    void Invoke(int64_t timeoutNanos = 60000000000);
+
+    template <typename T>
+    T* typed_input_buffer(int index) {
+        int32_t offset = network->getInputDataOffset(index);
+        return (T*)(arenaBuffer->data() + offset);
+    }
+
+    template <typename T>
+    T* typed_output_buffer(int index) {
+        int32_t offset = network->getOutputDataOffset(index);
+        return (T*)(arenaBuffer->data() + offset);
+    }
+
+    std::vector<TensorInfo> GetInputInfo();
+    std::vector<TensorInfo> GetOutputInfo();
+
+private:
+    Device device;
+    std::shared_ptr<Buffer> networkBuffer;
+    std::shared_ptr<Buffer> arenaBuffer;
+    std::shared_ptr<Network> network;
+    std::shared_ptr<Inference> inference;
+
+    int64_t arenaSizeOfMB;
+    std::vector<uint8_t> pmuCounters;
+    bool enableCycleCounter;
 };
 
 } // namespace EthosU
