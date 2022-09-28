@@ -28,6 +28,8 @@
 #include <string>
 #include <unistd.h>
 
+#include "common/pre_post_processing.h"
+
 using namespace std;
 using namespace EthosU;
 
@@ -43,12 +45,31 @@ void help(const string exe) {
     cerr << "       --index      Network model index, stored in firmware binary.\n";
     cerr << "    -i --ifm        File to read IFM from.\n";
     cerr << "    -o --ofm        File to write IFM to.\n";
+    cerr << "    -l --lbl        Lables file.\n";
     cerr << "    -P --pmu [0.." << Inference::getMaxPmuEventCounters() << "] eventid.\n";
     cerr << "                    PMU counter to enable followed by eventid, can be passed multiple times.\n";
     cerr << "    -C --cycles     Enable cycle counter for inference.\n";
     cerr << "    -t --timeout    Timeout in nanoseconds (default " << defaultTimeout << ").\n";
     cerr << "    -p              Print OFM.\n";
     cerr << endl;
+}
+
+// Takes a file name, and loads a list of labels from it, one per line, and
+// returns a vector of the strings. It pads with empty strings so the length
+// of the result is a multiple of 16, because our model expects that.
+int readLabelsFile(const string& file_name, std::vector<string>* result,
+                      size_t* found_label_count) {
+  std::ifstream file(file_name);
+  if (!file) {
+          return -1;
+  }
+  result->clear();
+  string line;
+  while (std::getline(file, line)) {
+    result->push_back(line);
+  }
+  *found_label_count = result->size();
+  return 0;
 }
 
 void rangeCheck(const int i, const int argc, const string arg) {
@@ -81,35 +102,28 @@ shared_ptr<Inference> createInference(Device &device,
                                       const string &filename,
                                       const std::vector<uint8_t> &counters,
                                       bool enableCycleCounter) {
-    // Open IFM file
-    ifstream stream(filename, ios::binary);
-    if (!stream.is_open()) {
-        cerr << "Error: Failed to open '" << filename << "'" << endl;
-        exit(1);
-    }
-
-    // Get IFM file size
-    stream.seekg(0, ios_base::end);
-    size_t size = stream.tellg();
-    stream.seekg(0, ios_base::beg);
-
-    if (size != network->getIfmSize()) {
-        cerr << "Error: IFM size does not match network size. filename=" << filename << ", size=" << size
-             << ", network=" << network->getIfmSize() << endl;
-        exit(1);
-    }
-
     // Create IFM buffers
     vector<shared_ptr<Buffer>> ifm;
-    size_t buffer_size = max(size, network->getIfmDims()[0]);
-    for (auto size : network->getIfmDims()) {
-        shared_ptr<Buffer> buffer = make_shared<Buffer>(device, buffer_size);
-        buffer->resize(size);
-        stream.read(buffer->data(), size);
+    for (int i = 0; i < network->getIfmDims().size(); i ++) {
+        auto ifmSize = network->getIfmDims()[i];
+        shared_ptr<Buffer> buffer = make_shared<Buffer>(device, ifmSize);
+        buffer->resize(ifmSize);
 
-        if (!stream) {
-            cerr << "Error: Failed to read IFM" << endl;
-            exit(1);
+        auto inputType = network->getIfmTypes()[i];
+        auto inputShape = network->getIfmShapes()[i];
+        switch (inputType) {
+            case TensorType::TensorType_UINT8:
+                getInputFromFile<uint8_t>(filename, (uint8_t*)buffer->data(), inputShape);
+                break;
+            case TensorType::TensorType_INT8:
+                getInputFromFile<int8_t>(filename, (int8_t*)buffer->data(), inputShape);
+                break;
+            case TensorType::TensorType_FLOAT32:
+                getInputFromFile<float>(filename, (float*)buffer->data(), inputShape);
+                break;
+            default:
+                cerr << "Unknown input tensor data type" << endl;
+                exit(1);
         }
 
         ifm.push_back(buffer);
@@ -146,6 +160,9 @@ int main(int argc, char *argv[]) {
     vector<uint8_t> enabledCounters(Inference::getMaxPmuEventCounters());
     string ofmArg;
     string devArg = "/dev/ethosu0";
+    string lblArg = "labels.txt";
+    std::vector<string> labels;
+    size_t labelCount;
     int64_t timeout         = defaultTimeout;
     bool print              = false;
     bool enableCycleCounter = false;
@@ -171,6 +188,9 @@ int main(int argc, char *argv[]) {
 	} else if (arg == "--dev" || arg == "-d") {
             rangeCheck(++i, argc, arg);
             devArg = argv[i];
+        } else if (arg == "--lbl" || arg == "-l") {
+            rangeCheck(++i, argc, arg);
+            lblArg = argv[i];
         } else if (arg == "--timeout" || arg == "-t") {
             rangeCheck(++i, argc, arg);
             timeout = stoll(argv[i]);
@@ -212,6 +232,11 @@ int main(int argc, char *argv[]) {
 
     if (ofmArg.empty()) {
         cerr << "Error: Missing 'ofm' argument" << endl;
+        exit(1);
+    }
+
+    if (readLabelsFile(lblArg, &labels, &labelCount) != 0) {
+        cerr << "Error: Can't read labels file " << lblArg << endl;
         exit(1);
     }
 
@@ -300,6 +325,47 @@ int main(int argc, char *argv[]) {
                 }
 
                 ofmStream.flush();
+
+                /* Process the inference result */
+                InferenceResult results;
+                if (inference->getOfmBuffers().size() > 1 ) {
+                    //for ssd model
+                    std::vector<void*> outputData;
+                    for (auto &ofmBuffer : inference->getOfmBuffers()) {
+                        outputData.push_back(ofmBuffer->data());
+                    }
+                    results = getBoundingBoxes(outputData, 4);
+                } else {
+                    size_t count = network->getOfmShapes()[0][1];
+                    // for image classification model
+                    auto data = inference->getOfmBuffers()[0]->data();
+                    switch (network->getOfmTypes()[0]) {
+                        case TensorType::TensorType_UINT8:
+                            results = getTopN<uint8_t>((uint8_t*)data, 0.23, count, 0, 255.0);
+                            break;
+                        case TensorType::TensorType_INT8:
+                            results = getTopN<int8_t>((int8_t*)data, 0.23, count, 128, 255.0);
+                        break;
+                        case TensorType::TensorType_FLOAT32:
+                            results = getTopN<float>((float*)data, 0.23, count, 0, 1.0);
+                             break;
+                        default:
+                            cerr << "Unknown output tensor data type" << endl;
+                            exit(1);
+                    }
+                }
+                /* Display the inference results */
+                for (auto result : results) {
+                    cout << "\nDetected: " << labels[std::get<0>(result)] << ", confidence:"
+                         << (int)(std::get<1>(result) * 100) << endl;
+
+                    auto pos = std::get<2>(result);
+                    if(pos.size() != 0) {
+                         cout << "Location: ymin: " << pos[0] << ", xmin " << pos[1]
+                              << ", ymax " << pos[2] << ", xmax " << pos[3] << endl;
+                    }
+                }
+
 
                 /* Read out PMU counters if configured */
                 if (std::count(enabledCounters.begin(), enabledCounters.end(), 0) <
