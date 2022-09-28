@@ -320,7 +320,7 @@ int Buffer::getFd() const {
  * Network
  ****************************************************************************/
 
-Network::Network(const Device &device, shared_ptr<Buffer> &buffer) : fd(-1), buffer(buffer) {
+Network::Network(const Device &device, shared_ptr<Buffer> &buffer) : device(device), fd(-1), buffer(buffer) {
     // Create buffer handle
     ethosu_uapi_network_create uapi;
     uapi.type = ETHOSU_UAPI_NETWORK_BUFFER;
@@ -338,7 +338,7 @@ Network::Network(const Device &device, shared_ptr<Buffer> &buffer) : fd(-1), buf
     Log(Severity::Info) << "Network(" << &device << ", " << &*buffer << "), this=" << this << ", fd=" << fd << endl;
 }
 
-Network::Network(const Device &device, const unsigned index) : fd(-1) {
+Network::Network(const Device &device, const unsigned index) : device(device), fd(-1) {
     // Create buffer handle
     ethosu_uapi_network_create uapi;
     uapi.type  = ETHOSU_UAPI_NETWORK_INDEX;
@@ -360,12 +360,30 @@ void Network::collectNetworkInfo() {
     ethosu_uapi_network_info info;
     ioctl(ETHOSU_IOCTL_NETWORK_INFO, static_cast<void *>(&info));
 
+    _isVelaModel = info.is_vela;
+
     for (uint32_t i = 0; i < info.ifm_count; i++) {
         ifmDims.push_back(info.ifm_size[i]);
+        ifmTypes.push_back(info.ifm_types[i]);
+        ifmDataOffset.push_back(info.ifm_offset[i]);
+
+        std::vector<size_t> shape;
+        for (uint32_t j = 0; j < info.ifm_dims[i]; j++) {
+            shape.push_back(info.ifm_shapes[i][j]);
+        }
+        ifmShapes.push_back(shape);
     }
 
     for (uint32_t i = 0; i < info.ofm_count; i++) {
         ofmDims.push_back(info.ofm_size[i]);
+        ofmTypes.push_back(info.ofm_types[i]);
+        ifmDataOffset.push_back(info.ifm_offset[i]);
+
+        std::vector<size_t> shape;
+        for (uint32_t j = 0; j < info.ofm_dims[i]; j++) {
+            shape.push_back(info.ofm_shapes[i][j]);
+        }
+        ofmShapes.push_back(shape);
     }
 }
 
@@ -408,6 +426,52 @@ size_t Network::getOfmSize() const {
     }
 
     return size;
+}
+
+size_t Network::getInputCount() const {
+    return ifmTypes.size();
+}
+
+size_t Network::getOutputCount() const {
+    return ofmTypes.size();
+}
+
+int32_t Network::getInputDataOffset(int index){
+    if (index > ifmDataOffset.size() + 1){
+        throw Exception("Invalid input index or non vela model");
+    }
+    return ifmDataOffset[index];
+}
+
+int32_t Network::getOutputDataOffset(int index){
+    if (index > ofmDataOffset.size() + 1){
+        throw Exception("Invalid output index or non vela model");
+    }
+    return ofmDataOffset[index];
+}
+
+const std::vector<std::vector<size_t>> &Network::getIfmShapes() const {
+    return ifmShapes;
+}
+
+const std::vector<std::vector<size_t>> &Network::getOfmShapes() const {
+    return ofmShapes;
+}
+
+const std::vector<int> &Network::getIfmTypes() const {
+    return ifmTypes;
+}
+
+const std::vector<int> &Network::getOfmTypes() const {
+    return ofmTypes;
+}
+
+const Device &Network::getDevice() const {
+    return device;
+}
+
+bool Network::isVelaModel() const {
+    return _isVelaModel;
 }
 
 /****************************************************************************

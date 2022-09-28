@@ -24,6 +24,7 @@
 #include <string>
 #include <vector>
 
+#define DEFAULT_ARENA_SIZE_OF_MB 16
 /*
  *The following undef are necessary to avoid clash with macros in GNU C Library
  * if removed the following warning/error are produced:
@@ -171,6 +172,17 @@ public:
     const std::vector<size_t> &getOfmDims() const;
     size_t getOfmSize() const;
 
+    size_t getInputCount() const;
+    size_t getOutputCount() const;
+    int32_t getInputDataOffset(int index);
+    int32_t getOutputDataOffset(int index);
+    const std::vector<std::vector<size_t>> &getIfmShapes() const;
+    const std::vector<std::vector<size_t>> &getOfmShapes() const;
+    const std::vector<int> &getIfmTypes() const;
+    const std::vector<int> &getOfmTypes() const;
+    const Device &getDevice() const;
+    bool isVelaModel() const;
+
 private:
     void collectNetworkInfo();
 
@@ -178,6 +190,14 @@ private:
     std::shared_ptr<Buffer> buffer;
     std::vector<size_t> ifmDims;
     std::vector<size_t> ofmDims;
+    std::vector<int32_t> ifmDataOffset;
+    std::vector<int32_t> ofmDataOffset;
+    std::vector<std::vector<size_t>> ifmShapes;
+    std::vector<std::vector<size_t>> ofmShapes;
+    std::vector<int> ifmTypes;
+    std::vector<int> ofmTypes;
+    const Device &device;
+    bool _isVelaModel;
 };
 
 enum class InferenceStatus {
@@ -204,6 +224,11 @@ public:
         std::copy(ofmBegin, ofmEnd, std::back_inserter(ofmBuffers));
         std::vector<uint32_t> counterConfigs = initializeCounterConfig();
 
+        // Init tensor arena buffer
+        size_t arena_buffer_size = DEFAULT_ARENA_SIZE_OF_MB << 20;
+        arenaBuffer = std::make_shared<Buffer>(network->getDevice(), arena_buffer_size);
+        arenaBuffer->resize(arena_buffer_size);
+
         create(counterConfigs, false);
     }
     template <typename T, typename U>
@@ -222,9 +247,31 @@ public:
         if (counters.size() > counterConfigs.size())
             throw EthosU::Exception("PMU Counters argument to large.");
 
+        // Init tensor arena buffer
+        size_t arena_buffer_size = DEFAULT_ARENA_SIZE_OF_MB << 20;
+        arenaBuffer = std::make_shared<Buffer>(network->getDevice(), arena_buffer_size);
+        arenaBuffer->resize(arena_buffer_size);
+
         std::copy(counters.begin(), counters.end(), counterConfigs.begin());
         create(counterConfigs, enableCycleCounter);
     }
+
+    template <typename T, typename U>
+    Inference(const std::shared_ptr<Network> &network,
+              const T &arenaBuffer,
+              const U &counters,
+              bool enableCycleCounter) :
+        network(network), arenaBuffer(arenaBuffer) {
+
+        std::vector<uint32_t> counterConfigs = initializeCounterConfig();
+
+        if (counters.size() > counterConfigs.size())
+            throw EthosU::Exception("PMU Counters argument to large.");
+
+        std::copy(counters.begin(), counters.end(), counterConfigs.begin());
+        create(counterConfigs, enableCycleCounter);
+    }
+
 
     virtual ~Inference() noexcept(false);
 
@@ -240,6 +287,9 @@ public:
 
     static uint32_t getMaxPmuEventCounters();
 
+    char* getInputData(int index = 0);
+    char* getOutputData(int index = 0);
+
 private:
     void create(std::vector<uint32_t> &counterConfigs, bool enableCycleCounter);
     std::vector<uint32_t> initializeCounterConfig();
@@ -248,6 +298,7 @@ private:
     const std::shared_ptr<Network> network;
     std::vector<std::shared_ptr<Buffer>> ifmBuffers;
     std::vector<std::shared_ptr<Buffer>> ofmBuffers;
+    std::shared_ptr<Buffer> arenaBuffer;
 };
 
 } // namespace EthosU

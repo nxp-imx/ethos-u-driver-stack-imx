@@ -65,6 +65,8 @@ namespace EthosU {
 
 /* Maximum number of IFM/OFM file descriptors per network */
 #define ETHOSU_FD_MAX                   16
+/* Maximum number of dimensions for input and output */
+#define ETHOSU_DIM_MAX                   8
 
 /* Maximum number of PMUs available */
 #define ETHOSU_PMU_EVENT_MAX             4
@@ -135,15 +137,31 @@ struct ethosu_uapi_network_create {
  * @desc:		Network description
  * @ifm_count:		Number of IFM buffers
  * @ifm_size:		IFM buffer sizes
+ * @ifm_types:          IFM data types
+ * @ifm_offset:         IFM data offset in arena
+ * @ifm_dims:           IFM buffer dimensions
+ * @ifm_shapes:         IFM buffer shapes
  * @ofm_count:		Number of OFM buffers
  * @ofm_size:		OFM buffer sizes
+ * @ofm_offset:         OFM data offset in arena
+ * @ofm_dims:           OFM buffer dimensions
+ * @ofm_shapes:         OFM buffer shapes
  */
 struct ethosu_uapi_network_info {
 	char  desc[32];
+	__u32 is_vela;
 	__u32 ifm_count;
 	__u32 ifm_size[ETHOSU_FD_MAX];
+	__u32 ifm_types[ETHOSU_FD_MAX];
+	__u32 ifm_offset[ETHOSU_FD_MAX];
+	__u32 ifm_dims[ETHOSU_FD_MAX];
+	__u32 ifm_shapes[ETHOSU_FD_MAX][ETHOSU_DIM_MAX];
 	__u32 ofm_count;
 	__u32 ofm_size[ETHOSU_FD_MAX];
+	__u32 ofm_types[ETHOSU_FD_MAX];
+	__u32 ofm_offset[ETHOSU_FD_MAX];
+	__u32 ofm_dims[ETHOSU_FD_MAX];
+	__u32 ofm_shapes[ETHOSU_FD_MAX][ETHOSU_DIM_MAX];
 };
 
 /**
