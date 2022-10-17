@@ -517,6 +517,7 @@ void Inference::create(std::vector<uint32_t> &counterConfigs, bool cycleCounterE
     }
 
     uapi.ifm_count = 0;
+    uapi.ifm_fd[uapi.ifm_count++] = arenaBuffer->getFd();
     for (auto it : ifmBuffers) {
         uapi.ifm_fd[uapi.ifm_count++] = it->getFd();
     }
