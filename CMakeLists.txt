@@ -1,5 +1,6 @@
 #
 # Copyright (c) 2020-2022 Arm Limited. All rights reserved.
+# Copyright 2020-2022 NXP
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -30,9 +31,6 @@ endif()
 
 string(REGEX REPLACE "(.*)gcc$" "\\1" CROSS_COMPILE "${CMAKE_C_COMPILER}")
 
-# Add rpath to library directory
-set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
-
 # Add include directory
 include_directories("kernel_driver/include")
 
@@ -41,3 +39,7 @@ add_subdirectory(driver_library)
 
 # Build utils
 add_subdirectory(utils)
+
+# Install header file and example
+install(FILES python/label_image.py DESTINATION "bin/ethosu/examples")
+install(FILES kernel_driver/include/uapi/ethosu.h DESTINATION "include/linux")
