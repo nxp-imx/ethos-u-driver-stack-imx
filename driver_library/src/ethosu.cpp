@@ -377,7 +377,7 @@ void Network::collectNetworkInfo() {
     for (uint32_t i = 0; i < info.ofm_count; i++) {
         ofmDims.push_back(info.ofm_size[i]);
         ofmTypes.push_back(info.ofm_types[i]);
-        ifmDataOffset.push_back(info.ifm_offset[i]);
+        ofmDataOffset.push_back(info.ofm_offset[i]);
 
         std::vector<size_t> shape;
         for (uint32_t j = 0; j < info.ofm_dims[i]; j++) {
@@ -437,14 +437,14 @@ size_t Network::getOutputCount() const {
 }
 
 int32_t Network::getInputDataOffset(int index){
-    if (index > ifmDataOffset.size() + 1){
+    if (index >= ifmDataOffset.size()){
         throw Exception("Invalid input index or non vela model");
     }
     return ifmDataOffset[index];
 }
 
 int32_t Network::getOutputDataOffset(int index){
-    if (index > ofmDataOffset.size() + 1){
+    if (index >= ofmDataOffset.size()){
         throw Exception("Invalid output index or non vela model");
     }
     return ofmDataOffset[index];
