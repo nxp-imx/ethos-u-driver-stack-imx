@@ -7,7 +7,7 @@ Type of Content:             source
 Description and comments:    ethos-u-driver-stack is the user space driver library for ethos-u NPU on iMX93 platform
 Release Location:            https://github.com/nxpmicro/ethos-u-driver-stack
 Origin:                      NXP (BSD-3-Clause)
-                             ARM Limited ethos-u-linux-driver-stack v22.02 (Apache-2.0) - https://git.mlplatform.org/ml/ethos-u/ethos-u-linux-driver-stack.git
+                             ARM Limited ethos-u-linux-driver-stack v22.08 (Apache-2.0) - https://git.mlplatform.org/ml/ethos-u/ethos-u-linux-driver-stack.git
 
 
 --------------------------------------------
@@ -20,7 +20,7 @@ Package Category:            Ethos-u Linux kernel driver header file
 Type of Content:             header file
 Description and comments:    Linux kernel driver header file, the driver stack will include this header
                              file to use linux kernel syscall.
-Origin:                      ARM ethos-u-linux-driver-stack v22.02 (Apache-2.0) - https://git.mlplatform.org/ml/ethos-u/ethos-u-linux-driver-stack.git
+Origin:                      ARM ethos-u-linux-driver-stack v22.08 (Apache-2.0) - https://git.mlplatform.org/ml/ethos-u/ethos-u-linux-driver-stack.git
 File location:               kernel_driver/include/ethos-u.h
 
 --------------------------------------------
