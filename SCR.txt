@@ -1,11 +1,11 @@
 NXP Software Content Register
 
-Package:                     ethos-u-driver-stack.git
+Package:                     ethos-u-driver-stack-imx.git
 Outgoing License:            Apache-2.0 
 License File:                LICENSE-APACHE-2.0.txt
 Type of Content:             source
 Description and comments:    ethos-u-driver-stack is the user space driver library for ethos-u NPU on iMX93 platform
-Release Location:            https://github.com/nxpmicro/ethos-u-driver-stack
+Release Location:            https://github.com/nxp-imx/ethos-u-driver-stack-imx
 Origin:                      NXP (BSD-3-Clause)
                              ARM Limited ethos-u-linux-driver-stack v22.08 (Apache-2.0) - https://git.mlplatform.org/ml/ethos-u/ethos-u-linux-driver-stack.git
 
