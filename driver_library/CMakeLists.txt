@@ -31,6 +31,6 @@ set_target_properties(ethosu PROPERTIES VERSION ${PROJECT_VERSION})
 
 # Install library and public headers
 install(TARGETS ethosu
-        LIBRARY DESTINATION "lib"
-        ARCHIVE DESTINATION "lib"
+        LIBRARY DESTINATION  ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION  ${CMAKE_INSTALL_LIBDIR}
         PUBLIC_HEADER DESTINATION "include")
