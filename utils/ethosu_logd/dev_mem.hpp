@@ -21,6 +21,8 @@
 
 #include <exception>
 #include <string>
+#include <cstdint>
+
 
 namespace EthosU {
 namespace DevMem {

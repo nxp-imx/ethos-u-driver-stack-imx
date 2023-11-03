@@ -21,6 +21,8 @@
 #include <tuple>
 #include <queue>
 #include <algorithm>
+#include <cstdint>
+
 
 #define DECODE_BUFFER_SIZE 1920 * 1080 * 3
 
