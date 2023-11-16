@@ -152,8 +152,9 @@ can't be easily moved.
 The kernel drivers are provided under a GPL v2 license. All other software
 componantes are provided under an Apache 2.0 license.
 
-Please see [LICENSE-APACHE-2.0.txt](LICENSE-APACHE-2.0.txt) and
-[LICENSE-GPL-2.0.txt](LICENSE-GPL-2.0.txt) for more information.
+Please see [LICENSE-APACHE-2.0.txt](LICENSE-APACHE-2.0.txt),
+[LICENSE-GPL-2.0.txt](LICENSE-GPL-2.0.txt) and [Linux-syscall-note](Linux-syscall-note)
+for more information.
 
 # Contributions
 
